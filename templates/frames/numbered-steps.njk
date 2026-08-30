@@ -1,0 +1,58 @@
+{# NUMBERED-STEPS - a sequential process, 2-4 steps. Use when order matters
+   (setup, signup, how-to). More than 4 steps will not read at phone size. #}
+{% set n = (slide.steps | default([])) | length %}
+<div class="inner steps steps-{{ n }}">
+
+  {% if slide.eyebrow %}
+    <div class="eyebrow">{{ slide.eyebrow }}</div>
+  {% endif %}
+
+  <h2 class="headline headline-sm">{{ slide.headline }}</h2>
+
+  <ol class="step-list">
+    {% for s in slide.steps %}
+      <li class="step">
+        <div class="step-num">{{ loop.index }}</div>
+        <div class="step-body">
+          <div class="step-title">{{ s.title | default(s) }}</div>
+          {% if s.detail %}<div class="step-detail">{{ s.detail }}</div>{% endif %}
+        </div>
+      </li>
+    {% endfor %}
+  </ol>
+
+  <div class="spacer"></div>
+
+  <div class="footer">
+    <span class="brand">{{ brand }}</span>
+    {% if totalSlides > 1 %}<span class="pager">{{ slideNumber }} / {{ totalSlides }}</span>{% endif %}
+  </div>
+
+</div>
+
+<style>
+  .steps .headline-sm {
+    font-size: clamp(48px, calc(104px - var(--headline-len) * 0.7px), 78px);
+    max-width: 840px;
+  }
+  .step-list { list-style: none; margin-top: 54px; display: flex; flex-direction: column; gap: 32px; }
+  .step { display: flex; align-items: flex-start; gap: 28px; }
+  .step-num {
+    flex: 0 0 auto;
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg);
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 38px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step-title { font-size: 38px; font-weight: 600; line-height: 1.24; color: var(--fg-strong); }
+  .step-detail { font-size: 29px; line-height: 1.36; color: var(--fg-muted); margin-top: 8px; }
+
+  .steps-4 .step-list { gap: 24px; }
+  .steps-4 .step-num { width: 62px; height: 62px; font-size: 32px; }
+  .steps-4 .step-title { font-size: 34px; }
+  .steps-4 .step-detail { font-size: 26px; }
+</style>

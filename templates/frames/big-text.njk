@@ -1,0 +1,44 @@
+{# BIG-TEXT - one short statement filling the whole slide. Maximum impact,
+   zero decoration. Use for the single most important line in a carousel. #}
+<div class="inner bigtext">
+
+  {% if slide.eyebrow %}
+    <div class="eyebrow">{{ slide.eyebrow }}</div>
+  {% endif %}
+
+  <div class="spacer"></div>
+
+  <div class="bt-body" style="--bt-len: {{ (slide.text | default('')) | length }};">
+    <div class="bt-text">{{ slide.text }}</div>
+    {% if slide.footnote %}<div class="bt-footnote">{{ slide.footnote }}</div>{% endif %}
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="footer">
+    <span class="brand">{{ brand }}</span>
+    {% if totalSlides > 1 %}<span class="pager">{{ slideNumber }} / {{ totalSlides }}</span>{% endif %}
+  </div>
+
+</div>
+
+<style>
+  .bt-body { display: flex; flex-direction: column; gap: 40px; }
+  .bt-text {
+    font-family: var(--font-display);
+    font-weight: 800;
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+    color: var(--fg-strong);
+    /* Very aggressive scaling - this frame is for SHORT text only. */
+    font-size: clamp(60px, calc(210px - var(--bt-len) * 1.5px), 148px);
+  }
+  .bt-footnote {
+    font-family: var(--font-mono);
+    font-size: 26px;
+    letter-spacing: 0.08em;
+    color: var(--fg-faint);
+    max-width: 760px;
+    line-height: 1.4;
+  }
+</style>

@@ -1,0 +1,36 @@
+{# COVER - opening slide. Big headline, optional kicker and subheadline,
+   swipe affordance at the bottom when this is part of a carousel. #}
+<div class="inner cover">
+
+  {% if slide.eyebrow %}
+    <div class="eyebrow">{{ slide.eyebrow }}</div>
+  {% endif %}
+
+  <div class="spacer"></div>
+
+  <div class="cover-body">
+    <div class="rule"></div>
+    <h1 class="headline">{{ slide.headline }}</h1>
+    {% if slide.subheadline %}
+      <p class="subheadline">{{ slide.subheadline }}</p>
+    {% endif %}
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="footer">
+    <span class="brand">{{ brand }}</span>
+    {% if totalSlides > 1 %}
+      <span class="swipe">Swipe &rarr;</span>
+    {% elif slide.source %}
+      <span>{{ slide.source }}</span>
+    {% endif %}
+  </div>
+
+</div>
+
+<style>
+  .cover-body { display: flex; flex-direction: column; gap: 40px; }
+  .cover .headline { max-width: 860px; }
+  .cover .subheadline { max-width: 760px; }
+</style>

@@ -1,0 +1,21 @@
+# Railway config.
+#
+# Railway auto-detects the Dockerfile. Docker is required rather than Nixpacks
+# because Playwright needs Chromium plus system libraries that Nixpacks' Node
+# image does not provide.
+#
+# Set these in the Railway dashboard under Variables:
+#   API_KEY          - a 64-char hex secret you generate
+#   PUBLIC_BASE_URL  - https://<your-app>.up.railway.app (after first deploy)
+#
+# PORT is injected by Railway automatically; the app already honours it.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

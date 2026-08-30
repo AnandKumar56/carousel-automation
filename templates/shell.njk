@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ slide.headline | default('slide') }}</title>
+<style>{{ baseCss | safe }}</style>
+<style>{{ themesCss | safe }}</style>
+{% if fontCss %}<style>{{ fontCss | safe }}</style>{% endif %}
+{% if slide.extraCss %}<style>{{ slide.extraCss | safe }}</style>{% endif %}
+</head>
+<body>
+<div class="slide theme-{{ theme }}" id="slide"
+     style="--headline-len: {{ (slide.headline | default('')) | length }};">
+
+  <div class="bg-layer bg-gradient"></div>
+  <div class="bg-layer bg-grid"></div>
+  <div class="bg-layer bg-glow"></div>
+
+  {% include templateFile %}
+
+</div>
+</body>
+</html>

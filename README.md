@@ -158,4 +158,3 @@ its name to `THEMES` in `src/render.js`. Cannot break layout.
 `FRAME_TYPES`, add validation in `validateSlide`, and add sample content to
 `SAMPLES` in `src/smoke.js`. The matrix test refuses to run if a frame type has
 no sample, so coverage cannot silently regress.
-"# carousel-automation" 

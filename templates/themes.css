@@ -1,0 +1,245 @@
+/* Theme tokens. A theme only changes colour, font choice and decoration -
+ * never geometry. That keeps every template exactly 1080x1350 regardless of
+ * which theme is applied, and lets a theme be swapped without retesting layout.
+ *
+ * Adding a theme is safe and cheap: copy a block, change the variables.
+ * Adding geometry here is NOT safe - do not introduce width/height/padding.
+ */
+
+/* ---------- dark-tech (default) ---------- */
+.theme-dark-tech {
+  --bg: #0b0d11;
+  --bg-gradient: linear-gradient(160deg, #0b0d11 0%, #12161d 55%, #0b0d11 100%);
+  --fg: #d8dee9;
+  --fg-strong: #ffffff;
+  --fg-muted: #9aa4b2;
+  --fg-faint: #5b6472;
+  --accent: #76b900;
+  --accent-soft: rgba(118, 185, 0, 0.16);
+  --grid-line: rgba(255, 255, 255, 0.04);
+  --grid-opacity: 1;
+  --glow-x: 78%;
+  --glow-y: 18%;
+  --card-bg: #14181f;
+  --card-border: rgba(255, 255, 255, 0.07);
+  --font-display: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-body: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+}
+
+/* ---------- editorial: light, magazine, serif display ---------- */
+.theme-editorial {
+  --bg: #f6f4ef;
+  --bg-gradient: linear-gradient(180deg, #faf8f4 0%, #f1eee7 100%);
+  --fg: #2b2b2b;
+  --fg-strong: #111111;
+  --fg-muted: #5c5750;
+  --fg-faint: #9a938a;
+  --accent: #b8442c;
+  --accent-soft: rgba(184, 68, 44, 0.1);
+  --grid-line: rgba(0, 0, 0, 0.035);
+  --grid-opacity: 1;
+  --glow-x: 20%;
+  --glow-y: 12%;
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.09);
+  --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
+  --font-body: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Consolas", monospace;
+}
+
+/* ---------- minimal: near-monochrome, maximum negative space ---------- */
+.theme-minimal {
+  --bg: #ffffff;
+  --bg-gradient: none;
+  --fg: #1a1a1a;
+  --fg-strong: #000000;
+  --fg-muted: #6e6e6e;
+  --fg-faint: #b0b0b0;
+  --accent: #1a1a1a;
+  --accent-soft: rgba(0, 0, 0, 0.04);
+  --grid-line: transparent;
+  --grid-opacity: 0;
+  --glow-x: 50%;
+  --glow-y: 50%;
+  --card-bg: #f7f7f7;
+  --card-border: rgba(0, 0, 0, 0.08);
+  --font-display: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-body: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Consolas", monospace;
+}
+
+/* ---------- dramatic: high contrast, hot accent ---------- */
+.theme-dramatic {
+  --bg: #08070a;
+  --bg-gradient: linear-gradient(140deg, #12060f 0%, #08070a 50%, #0a0510 100%);
+  --fg: #e8e4ec;
+  --fg-strong: #ffffff;
+  --fg-muted: #a79fb0;
+  --fg-faint: #635b6d;
+  --accent: #ff3d6e;
+  --accent-soft: rgba(255, 61, 110, 0.2);
+  --grid-line: rgba(255, 255, 255, 0.03);
+  --grid-opacity: 1;
+  --glow-x: 50%;
+  --glow-y: 88%;
+  --card-bg: #14101a;
+  --card-border: rgba(255, 255, 255, 0.08);
+  --font-display: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-body: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Consolas", monospace;
+}
+
+/* ---------- data-forward: numbers are the hero ---------- */
+.theme-data {
+  --bg: #0d1117;
+  --bg-gradient: linear-gradient(180deg, #0d1117 0%, #111823 100%);
+  --fg: #cdd9e5;
+  --fg-strong: #ffffff;
+  --fg-muted: #8b98a5;
+  --fg-faint: #545d68;
+  --accent: #2f81f7;
+  --accent-soft: rgba(47, 129, 247, 0.16);
+  --grid-line: rgba(255, 255, 255, 0.05);
+  --grid-opacity: 1;
+  --glow-x: 50%;
+  --glow-y: 10%;
+  --card-bg: #161c26;
+  --card-border: rgba(255, 255, 255, 0.08);
+  --font-display: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-body: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Consolas", monospace;
+}
+
+/* ===================================================================
+ * BRAND-AUTHENTIC THEMES
+ * These echo how the named company presents its own visual material, for
+ * stories that centre on that company. They are stylistic homage, not logo
+ * usage - no marks or wordmarks are reproduced.
+ * =================================================================== */
+
+/* ---------- brand-google: Material, geometric, primary palette ---------- */
+.theme-brand-google {
+  --bg: #ffffff;
+  --bg-gradient: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  --fg: #3c4043;
+  --fg-strong: #202124;
+  --fg-muted: #5f6368;
+  --fg-faint: #9aa0a6;
+  --accent: #1a73e8;
+  --accent-soft: rgba(26, 115, 232, 0.1);
+  --grid-line: rgba(0, 0, 0, 0.03);
+  --grid-opacity: 1;
+  --glow-x: 85%;
+  --glow-y: 15%;
+  --card-bg: #f1f3f4;
+  --card-border: rgba(0, 0, 0, 0.08);
+  --font-display: "Google Sans", "Product Sans", "Inter", Roboto, Arial, sans-serif;
+  --font-body: Roboto, "Inter", Arial, sans-serif;
+  --font-mono: "Roboto Mono", "JetBrains Mono", Consolas, monospace;
+}
+
+/* ---------- brand-apple: stark, vast negative space, product-hero ---------- */
+.theme-brand-apple {
+  --bg: #f5f5f7;
+  --bg-gradient: linear-gradient(180deg, #ffffff 0%, #f5f5f7 100%);
+  --fg: #1d1d1f;
+  --fg-strong: #000000;
+  --fg-muted: #6e6e73;
+  --fg-faint: #a1a1a6;
+  --accent: #0071e3;
+  --accent-soft: rgba(0, 113, 227, 0.08);
+  --grid-line: transparent;
+  --grid-opacity: 0;
+  --glow-x: 50%;
+  --glow-y: 30%;
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.06);
+  --font-display: "SF Pro Display", "Helvetica Neue", "Inter", Helvetica, Arial, sans-serif;
+  --font-body: "SF Pro Text", "Helvetica Neue", "Inter", Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", Consolas, monospace;
+}
+
+/* ---------- brand-openai: restrained monochrome ---------- */
+.theme-brand-openai {
+  --bg: #ffffff;
+  --bg-gradient: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+  --fg: #353740;
+  --fg-strong: #202123;
+  --fg-muted: #6e6e80;
+  --fg-faint: #acacbe;
+  --accent: #10a37f;
+  --accent-soft: rgba(16, 163, 127, 0.1);
+  --grid-line: rgba(0, 0, 0, 0.025);
+  --grid-opacity: 1;
+  --glow-x: 70%;
+  --glow-y: 80%;
+  --card-bg: #f7f7f8;
+  --card-border: rgba(0, 0, 0, 0.07);
+  --font-display: "Söhne", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-body: "Söhne", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "Söhne Mono", "JetBrains Mono", Consolas, monospace;
+}
+
+/* ---------- terminal: mono, green on black, developer aesthetic ---------- */
+.theme-terminal {
+  --bg: #0a0a0a;
+  --bg-gradient: none;
+  --fg: #33ff66;
+  --fg-strong: #7dffa4;
+  --fg-muted: #29cc52;
+  --fg-faint: #1a7a31;
+  --accent: #33ff66;
+  --accent-soft: rgba(51, 255, 102, 0.12);
+  --grid-line: rgba(51, 255, 102, 0.06);
+  --grid-opacity: 1;
+  --glow-x: 50%;
+  --glow-y: 100%;
+  --card-bg: #0f150f;
+  --card-border: rgba(51, 255, 102, 0.25);
+  --font-display: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+  --font-body: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+  --font-mono: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+}
+
+/* ---------- paper: warm off-white, print feel ---------- */
+.theme-paper {
+  --bg: #f4f1e8;
+  --bg-gradient: linear-gradient(180deg, #f7f4ec 0%, #efeade 100%);
+  --fg: #3a3630;
+  --fg-strong: #1f1c17;
+  --fg-muted: #6b655c;
+  --fg-faint: #a39c90;
+  --accent: #1f6f5c;
+  --accent-soft: rgba(31, 111, 92, 0.1);
+  --grid-line: rgba(0, 0, 0, 0.02);
+  --grid-opacity: 1;
+  --glow-x: 15%;
+  --glow-y: 85%;
+  --card-bg: #fbf9f3;
+  --card-border: rgba(0, 0, 0, 0.1);
+  --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
+  --font-body: "Lora", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", Consolas, monospace;
+}
+
+/* ---------- neon: cyberpunk, saturated, high glow ---------- */
+.theme-neon {
+  --bg: #05010f;
+  --bg-gradient: linear-gradient(150deg, #0a0320 0%, #05010f 55%, #10032b 100%);
+  --fg: #ddd6ff;
+  --fg-strong: #ffffff;
+  --fg-muted: #9d92d4;
+  --fg-faint: #5f579c;
+  --accent: #00f0ff;
+  --accent-soft: rgba(0, 240, 255, 0.22);
+  --grid-line: rgba(0, 240, 255, 0.07);
+  --grid-opacity: 1;
+  --glow-x: 25%;
+  --glow-y: 75%;
+  --card-bg: #0d0524;
+  --card-border: rgba(0, 240, 255, 0.28);
+  --font-display: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-body: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", Consolas, monospace;
+}

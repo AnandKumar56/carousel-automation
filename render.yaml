@@ -1,0 +1,42 @@
+# Render.com blueprint.
+#
+# Docker is used rather than a native Node runtime because Playwright needs
+# Chromium plus a long list of system libraries. On Render's native Node
+# environment those are absent and cannot be apt-installed, so headless Chrome
+# fails at launch. The Playwright base image in the Dockerfile already has them.
+#
+# Plan: "starter" (512MB) is NOT enough - Chromium alone needs more than that
+# and the container will be OOM-killed mid-render. "standard" (2GB) is the
+# realistic floor.
+
+services:
+  - type: web
+    name: carousel-automation
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # Free/starter (512MB) is NOT enough - Chromium alone exceeds it and the
+    # container is OOM-killed part-way through a render, which surfaces as a
+    # random timeout rather than an obvious memory error.
+    plan: standard
+    region: oregon
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Generated once by Render and kept across deploys. Read it from the
+      # dashboard afterwards - n8n needs the same value in its x-api-key header.
+      - key: API_KEY
+        generateValue: true
+      # Render injects PORT; the app already honours it. Declared for clarity.
+      - key: PORT
+        value: 8080
+      # Must match the service's public URL so returned image links resolve.
+      # Set this in the dashboard AFTER the first deploy, once the hostname
+      # exists: https://carousel-automation.onrender.com
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: RENDER_TTL_MS
+        value: 1800000
+      - key: RATE_MAX
+        value: 30
+      - key: RATE_WINDOW_MS
+        value: 60000

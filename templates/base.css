@@ -1,0 +1,152 @@
+/* Shared base styles for every slide template.
+ *
+ * Hard rule: the .slide box is EXACTLY 1080x1350 (Instagram 4:5). Playwright
+ * screenshots that element with a fixed clip, so output dimensions can never
+ * drift. Nothing here may change .slide's width or height.
+ *
+ * Safe area: Instagram overlays UI near the edges in some surfaces, and the
+ * feed can crop marginally. All content sits inside .inner, which carries
+ * 96px of padding, so nothing important is ever near an edge.
+ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 1080px;
+  height: 1350px;
+  overflow: hidden;
+}
+
+.slide {
+  position: relative;
+  width: 1080px;
+  height: 1350px;
+  overflow: hidden;
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--fg);
+  display: flex;
+  flex-direction: column;
+}
+
+.inner {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 96px;
+}
+
+/* ---------- decorative layers ---------- */
+
+.bg-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.bg-gradient {
+  background: var(--bg-gradient);
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 72px 72px;
+  opacity: var(--grid-opacity);
+}
+
+.bg-glow {
+  background: radial-gradient(
+    circle at var(--glow-x) var(--glow-y),
+    var(--accent-soft) 0%,
+    transparent 60%
+  );
+}
+
+/* ---------- type ---------- */
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.headline {
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  color: var(--fg-strong);
+  /* Scales down as the string grows so long headlines never overflow. */
+  font-size: clamp(56px, calc(150px - var(--headline-len) * 1.05px), 116px);
+}
+
+.subheadline {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 40px;
+  line-height: 1.32;
+  color: var(--fg-muted);
+}
+
+.body-text {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 32px;
+  line-height: 1.42;
+  color: var(--fg-muted);
+}
+
+/* ---------- shared furniture ---------- */
+
+.rule {
+  width: 132px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 4px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 24px;
+  letter-spacing: 0.08em;
+  color: var(--fg-faint);
+}
+
+.brand {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.pager {
+  font-variant-numeric: tabular-nums;
+}
+
+.swipe {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}

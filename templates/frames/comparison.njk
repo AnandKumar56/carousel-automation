@@ -1,0 +1,95 @@
+{# COMPARISON - two stacked panels, left vs right / before vs after / pros vs
+   cons. Stacked rather than side-by-side because 1080px of width cannot carry
+   two readable text columns at Instagram viewing size. #}
+<div class="inner comparison">
+
+  {% if slide.eyebrow %}
+    <div class="eyebrow">{{ slide.eyebrow }}</div>
+  {% endif %}
+
+  <h2 class="headline headline-sm">{{ slide.headline }}</h2>
+
+  <div class="panels">
+    <div class="panel panel-a">
+      <div class="panel-label">{{ slide.leftLabel | default('Before') }}</div>
+      {% if slide.leftValue %}<div class="panel-value">{{ slide.leftValue }}</div>{% endif %}
+      {% if slide.leftItems %}
+        <ul class="panel-items">
+          {% for i in slide.leftItems %}<li>{{ i }}</li>{% endfor %}
+        </ul>
+      {% elif slide.leftText %}
+        <p class="panel-text">{{ slide.leftText }}</p>
+      {% endif %}
+    </div>
+
+    <div class="vs">vs</div>
+
+    <div class="panel panel-b">
+      <div class="panel-label accent">{{ slide.rightLabel | default('After') }}</div>
+      {% if slide.rightValue %}<div class="panel-value accent">{{ slide.rightValue }}</div>{% endif %}
+      {% if slide.rightItems %}
+        <ul class="panel-items">
+          {% for i in slide.rightItems %}<li>{{ i }}</li>{% endfor %}
+        </ul>
+      {% elif slide.rightText %}
+        <p class="panel-text">{{ slide.rightText }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="footer">
+    <span class="brand">{{ brand }}</span>
+    {% if totalSlides > 1 %}
+      <span class="pager">{{ slideNumber }} / {{ totalSlides }}</span>
+    {% endif %}
+  </div>
+
+</div>
+
+<style>
+  .comparison .headline-sm {
+    font-size: clamp(48px, calc(104px - var(--headline-len) * 0.7px), 76px);
+    max-width: 840px;
+  }
+  .panels { margin-top: 48px; display: flex; flex-direction: column; gap: 20px; }
+  .panel {
+    background: var(--card-bg);
+    border: 2px solid var(--card-border);
+    border-radius: 20px;
+    padding: 38px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .panel-b { border-color: var(--accent); }
+  .panel-label {
+    font-family: var(--font-mono);
+    font-size: 26px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fg-faint);
+  }
+  .panel-label.accent, .panel-value.accent { color: var(--accent); }
+  .panel-value {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 76px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--fg-strong);
+    font-variant-numeric: tabular-nums;
+  }
+  .panel-items { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .panel-items li { font-size: 30px; line-height: 1.3; color: var(--fg); }
+  .panel-text { font-size: 30px; line-height: 1.34; color: var(--fg); }
+  .vs {
+    align-self: center;
+    font-family: var(--font-mono);
+    font-size: 28px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--fg-faint);
+  }
+</style>

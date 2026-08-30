@@ -1,0 +1,22 @@
+{
+  "name": "carousel-render-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Renders Instagram 4:5 carousel slides from JSON using HTML/CSS templates and Playwright. No AI image generation.",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "smoke": "node src/smoke.js",
+    "deploycheck": "node src/deploycheck.js",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "express": "4.21.2",
+    "nunjucks": "3.2.4",
+    "playwright": "1.49.1"
+  }
+}

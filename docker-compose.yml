@@ -1,0 +1,23 @@
+services:
+  carousel-render:
+    build: .
+    container_name: carousel-render
+    restart: unless-stopped
+    ports:
+      # Bound to localhost only. If n8n runs in Docker on the same host, prefer
+      # putting both on a shared network and dropping this mapping entirely.
+      - "127.0.0.1:8080:8080"
+    environment:
+      PORT: 8080
+      # REQUIRED before exposing this beyond localhost. Without it the service
+      # runs unauthenticated and logs a warning at boot.
+      API_KEY: "${CAROUSEL_API_KEY}"
+      # Set to the externally reachable base URL so returned image links work
+      # from n8n, e.g. https://carousel.example.com
+      PUBLIC_BASE_URL: "${CAROUSEL_PUBLIC_BASE_URL:-}"
+      RENDER_TTL_MS: "1800000"
+      RATE_MAX: "30"
+      RATE_WINDOW_MS: "60000"
+    # Chromium needs more than the default 64MB of shared memory or it crashes
+    # part-way through a batch.
+    shm_size: "1gb"
