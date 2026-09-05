@@ -16,6 +16,18 @@ process.env.PORT = process.env.PORT || '8123';
 process.env.API_KEY = 'deploycheck-key-abc123';
 process.env.PUBLIC_BASE_URL = 'https://carousel.example.com';
 
+/* Raised well clear of the burst below. The rate limiter and the render queue are
+ * different protections - the limiter is about abuse, the queue is about capacity -
+ * and they both answer 429, so leaving the limiter at its default would let it
+ * absorb the burst and the queue would never be exercised. */
+process.env.RATE_MAX = '200';
+
+/* Deliberately smaller than the burst so BOTH queue paths are covered: some
+ * requests are absorbed and served, and some are cleanly rejected. At the default
+ * cap of 12 an 8-request burst would all queue successfully and the rejection path
+ * would go untested. */
+process.env.RENDER_MAX_QUEUE = '4';
+
 const PORT = Number(process.env.PORT);
 const KEY = process.env.API_KEY;
 
@@ -229,6 +241,84 @@ function check(name, pass, detail) {
   check('unchartable data returns 400 with a usable message',
     badChart.status === 400 && /at least 3 data points/.test(badChartOut.error || ''),
     `status=${badChart.status} ${badChartOut.error || ''}`);
+
+  /* 9. CONCURRENT LOAD.
+   * This is the crash the queue exists to prevent: clicking several research
+   * buttons fans out into several carousel renders arriving at once, each of which
+   * used to launch its own Chromium. On a 512MB container that is an OOM kill, and
+   * the caller sees a dropped connection rather than an error it can act on.
+   *
+   * The requirement is not "all succeed" - rejecting under load is correct. It is
+   * that every request gets a DEFINITE answer: 200, or 429 with a retry hint.
+   * Never a 500, and never a dead socket. */
+  const CONCURRENT = 8;
+  const burst = [];
+  for (let i = 0; i < CONCURRENT; i++) {
+    burst.push(req('POST', '/render', {
+      headers: { 'x-api-key': KEY },
+      body: {
+        total_slides: CONCURRENT,
+        start_index: i + 1,
+        slides: [{ type: 'big-text', text: `Concurrent render ${i + 1}` }],
+      },
+    }).then((r) => {
+      let body = {};
+      try { body = JSON.parse(r.buf.toString()); } catch (e) { /* noop */ }
+      return { status: r.status, body };
+    }, (err) => ({ status: 0, body: { error: err.message } })));
+  }
+
+  const results = await Promise.all(burst);
+  const ok = results.filter((r) => r.status === 200).length;
+  const throttled = results.filter((r) => r.status === 429).length;
+  const broken = results.filter((r) => r.status !== 200 && r.status !== 429);
+
+  check(
+    `${CONCURRENT} concurrent renders all answered definitively`,
+    broken.length === 0,
+    `${ok} ok, ${throttled} throttled` + (broken.length
+      ? `, BROKEN: ${broken.map((b) => `${b.status} ${b.body.error || ''}`).join(' | ')}`
+      : '')
+  );
+
+  // A throttled caller must be told how long to wait, or it can only guess.
+  const sample = results.find((r) => r.status === 429);
+  check(
+    'throttled responses carry a retry hint',
+    !sample || (typeof sample.body.retry_after_seconds === 'number' && sample.body.retry_after_seconds >= 1),
+    sample ? `retry_after_seconds=${sample.body.retry_after_seconds}` : '(none throttled - queue absorbed the burst)'
+  );
+
+  // 10. the service is still alive and reporting load after the burst
+  const after = await req('GET', '/health');
+  let afterHealth = {};
+  try { afterHealth = JSON.parse(after.buf.toString()); } catch (e) { /* noop */ }
+  check('service is healthy after the burst', after.status === 200, `status=${after.status}`);
+  check(
+    'health reports queue load and memory',
+    Boolean(afterHealth.load) && typeof afterHealth.load.completed === 'number'
+      && Boolean(afterHealth.memory_mb) && typeof afterHealth.memory_mb.rss === 'number',
+    afterHealth.load
+      ? `completed=${afterHealth.load.completed} peak_in_flight=${afterHealth.load.max_in_flight_seen} rss=${afterHealth.memory_mb.rss}MB`
+      : '(missing)'
+  );
+
+  /* One browser, not eight. This is the assertion that actually proves the fix -
+   * the burst above would pass even with a browser per request, right up until the
+   * container ran out of memory. */
+  check(
+    'the burst used one shared browser',
+    Boolean(afterHealth.browser) && afterHealth.browser.launches <= 2,
+    afterHealth.browser
+      ? `launches=${afterHealth.browser.launches} recycles=${afterHealth.browser.recycles} crashes=${afterHealth.browser.crashes}`
+      : '(missing)'
+  );
+
+  check(
+    'no browser crashed during the burst',
+    Boolean(afterHealth.browser) && afterHealth.browser.crashes === 0,
+    afterHealth.browser ? `crashes=${afterHealth.browser.crashes}` : '(missing)'
+  );
 
   const failed = checks.filter((c) => !c.pass);
   console.log('');

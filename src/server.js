@@ -19,6 +19,7 @@ const fs = require('fs');
 const path = require('path');
 const {
   renderSlides,
+  browserPool,
   FRAME_TYPES,
   THEMES,
   WIDTH,
@@ -26,6 +27,7 @@ const {
   DEFAULT_THEME,
   DEFAULT_BRAND,
 } = require('./render');
+const { RenderQueue } = require('./renderqueue');
 const { CHART_KINDS } = require('./charts');
 const {
   CHART_MIN_POINTS,
@@ -41,6 +43,13 @@ const TTL_MS = Number(process.env.RENDER_TTL_MS || 30 * 60 * 1000);
 const OUT_DIR = path.join(__dirname, '..', 'out');
 
 if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
+
+/* Renders are serialised through this queue. Concurrency defaults to 1 because
+ * the binding constraint is container memory: one Chromium fits in 512MB, two do
+ * not, and an OOM kill takes down every in-flight request rather than failing one.
+ * See renderqueue.js for why the bound is enforced here and not only in the
+ * calling workflow. */
+const renderQueue = new RenderQueue();
 
 const app = express();
 
@@ -103,6 +112,7 @@ function rateLimit(req, res, next) {
 /* ---------- routes ---------- */
 
 app.get('/health', (req, res) => {
+  const mem = process.memoryUsage();
   res.json({
     status: 'ok',
     dimensions: `${WIDTH}x${HEIGHT}`,
@@ -112,6 +122,18 @@ app.get('/health', (req, res) => {
     themes: THEMES,
     auth_required: Boolean(API_KEY),
     batches_cached: batches.size,
+    /* Load is reported so a workflow can back off before it starts being rejected,
+     * and so a container creeping towards its memory limit is visible before it is
+     * killed. rss is the figure that matters on a 512MB plan - heapUsed covers only
+     * Node and says nothing about the Chromium processes beside it. */
+    load: renderQueue.snapshot(),
+    browser: browserPool.snapshot(),
+    memory_mb: {
+      rss: Math.round(mem.rss / 1048576),
+      heap_used: Math.round(mem.heapUsed / 1048576),
+      external: Math.round(mem.external / 1048576),
+    },
+    uptime_seconds: Math.round(process.uptime()),
   });
 });
 
@@ -257,7 +279,9 @@ app.post('/render', requireKey, rateLimit, async (req, res) => {
   const responseMode = body.response_mode === 'base64' ? 'base64' : 'urls';
 
   try {
-    const rendered = await renderSlides(slides, {
+    /* Queued rather than run directly. Everything expensive happens inside the
+     * task, so an overload is rejected before a browser is touched. */
+    const rendered = await renderQueue.run(() => renderSlides(slides, {
       theme: body.theme,
       brand: body.brand,
       // Pagination travels with the request so a batch of 3 out of 7 still
@@ -265,6 +289,9 @@ app.post('/render', requireKey, rateLimit, async (req, res) => {
       // total_slides take precedence over these batch-level values.
       total_slides: body.total_slides,
       start_index: body.start_index,
+    }), {
+      label: 'carousel batch',
+      weight: Array.isArray(slides) ? slides.length : 1,
     });
 
     const batchId = crypto.randomBytes(9).toString('hex');
@@ -323,15 +350,33 @@ app.post('/render', requireKey, rateLimit, async (req, res) => {
       })),
     });
   } catch (err) {
-    // Validation and overflow errors are the caller's problem (400); anything
-    // else is ours (500). Either way the message is returned verbatim so a
-    // workflow trace shows the real cause rather than "Bad request".
-    //
-    // Classified by an explicit marker rather than by pattern-matching the
-    // message text: the earlier regex approach silently misclassified real
-    // validation failures as 500s, which would have sent a workflow down an
-    // error path instead of telling it to shorten the copy.
+    /* Three distinct outcomes, because a workflow has to do three different
+     * things with them:
+     *   429 - transient, retry after the advertised delay. The queue is full.
+     *   400 - the caller's content is wrong; retrying changes nothing.
+     *   500/504 - ours.
+     * Classified by explicit markers rather than by pattern-matching the message
+     * text: an earlier regex approach silently misclassified real validation
+     * failures as 500s, which sent workflows down an error path instead of telling
+     * them to shorten the copy. */
     const msg = err && err.message ? err.message : String(err);
+
+    if (err && err.isOverloaded === true) {
+      const retry = err.retryAfterSeconds || 10;
+      res.set('Retry-After', String(retry));
+      return res.status(429).json({
+        error: msg,
+        retry_after_seconds: retry,
+        load: renderQueue.snapshot(),
+      });
+    }
+
+    if (err && err.isTimeout === true) {
+      // 504, not 500: the render did not fail, it did not finish in time. A
+      // workflow may reasonably retry a smaller batch.
+      return res.status(504).json({ error: msg, load: renderQueue.snapshot() });
+    }
+
     const isClient = err && err.isValidation === true;
     return res.status(isClient ? 400 : 500).json({ error: msg });
   }
@@ -349,14 +394,37 @@ app.get('/render/:batchId/:filename', (req, res) => {
 
 app.use((req, res) => res.status(404).json({ error: 'not found' }));
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
+  const load = renderQueue.snapshot();
   console.log(`carousel-render-service listening on 0.0.0.0:${PORT}`);
   console.log(`  output: ${WIDTH}x${HEIGHT} (4:5)`);
   console.log(`  frames: ${FRAME_TYPES.join(', ')}`);
   console.log(`  themes: ${THEMES.join(', ')}`);
+  console.log(`  charts: ${CHART_KINDS.join(', ')}`);
+  console.log(`  render concurrency: ${load.concurrency}  queue cap: ${load.max_queue}  job timeout: ${load.job_timeout_ms}ms`);
   console.log(`  public base url: ${PUBLIC_BASE_URL || '(derived from request host)'}`);
   if (!API_KEY) {
     console.warn('  WARNING: API_KEY is not set - this service is UNAUTHENTICATED.');
     console.warn('  Do not expose it publicly without setting API_KEY.');
   }
 });
+
+/* Render's free tier stops a container with SIGTERM. Closing the browser on the
+ * way out means the next deploy does not inherit an orphaned Chromium, and it
+ * lets in-flight renders finish rather than being cut mid-screenshot. */
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) { return; }
+  shuttingDown = true;
+  console.log(`${signal} received - closing browser and draining`);
+  server.close(() => { /* stop accepting new connections */ });
+  browserPool.close()
+    .catch(() => { /* already gone */ })
+    .then(() => process.exit(0));
+  // Do not hang forever if a render will not let go.
+  setTimeout(() => process.exit(0), 10000).unref();
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+module.exports = { app, server, renderQueue };

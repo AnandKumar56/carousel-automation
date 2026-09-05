@@ -16,9 +16,9 @@
 const fs = require('fs');
 const path = require('path');
 const nunjucks = require('nunjucks');
-const { chromium } = require('playwright');
 const { renderChart } = require('./charts');
 const { prepareSlide } = require('./slidemodel');
+const { BrowserPool } = require('./browserpool');
 
 const WIDTH = 1080;
 const HEIGHT = 1350;
@@ -378,8 +378,19 @@ function buildHtml(slide, opts) {
   });
 }
 
+/* One shared Chromium for the process. Launching per request put N browsers on a
+ * 512MB container under concurrent load, which is an OOM kill rather than an
+ * error the caller can act on. See browserpool.js for the recycling budget. */
+const pool = new BrowserPool();
+
 /**
  * Render slides to PNG buffers.
+ *
+ * NOT concurrency-safe by itself, and deliberately not made so here: correctness
+ * under load is the render queue's job (see renderqueue.js), because the limit
+ * being protected is the container's memory, not anything this function owns.
+ * Calling it directly from more than one place at a time will work, and will also
+ * be what kills the container.
  *
  * @param {Array<object>} slides
  * @param {object} [options] theme, brand, and optionally total_slides /
@@ -397,16 +408,18 @@ async function renderSlides(slides, options = {}) {
   const theme = THEMES.includes(options.theme) ? options.theme : DEFAULT_THEME;
   const brand = options.brand || DEFAULT_BRAND;
 
-  // Validate everything BEFORE launching a browser, so bad input costs nothing.
+  // Validate everything BEFORE touching a browser, so bad input costs nothing.
   const types = slides.map((s, i) => validateSlide(s, i));
   const pages = resolvePagination(slides, options);
 
-  const browser = await chromium.launch({
-    args: ['--no-sandbox', '--disable-dev-shm-usage', '--font-render-hinting=none'],
-  });
+  const browser = await pool.acquire();
+  let context = null;
 
   try {
-    const context = await browser.newContext({
+    /* A fresh context per render, even though the browser is shared: contexts are
+     * cheap and isolate cookies, storage and route handlers, so no state can leak
+     * from one carousel into the next. */
+    context = await browser.newContext({
       viewport: { width: WIDTH, height: HEIGHT },
       deviceScaleFactor: 1,
       // Blocking external requests keeps rendering deterministic and offline-safe.
@@ -488,7 +501,13 @@ async function renderSlides(slides, options = {}) {
 
     return out;
   } finally {
-    await browser.close();
+    /* Close the CONTEXT, not the browser - the pool owns the process lifetime.
+     * A context that will not close is already gone, and throwing here would
+     * replace the caller's real error with a cleanup one. */
+    if (context) {
+      try { await context.close(); } catch (err) { /* nothing left to reclaim */ }
+    }
+    await pool.release(slides.length);
   }
 }
 
@@ -496,6 +515,7 @@ module.exports = {
   renderSlides,
   resolvePagination,
   validationError,
+  browserPool: pool,
   FRAME_TYPES,
   THEMES,
   WIDTH,
