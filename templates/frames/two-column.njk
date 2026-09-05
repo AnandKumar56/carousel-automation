@@ -1,73 +1,40 @@
-{# TWO-COLUMN - two related lists side by side. Unlike `comparison` this is not
-   adversarial framing; use it for two facets of one thing. Item counts should
-   be close to equal or the columns look unbalanced. #}
-<div class="inner twocol">
+{# TWO-COLUMN / split_comparison - two facets of one thing.
 
-  {% if slide.eyebrow %}
-    <div class="eyebrow">{{ slide.eyebrow }}</div>
-  {% endif %}
+   Shares the split layout with `comparison` but is NOT adversarial framing: no
+   accent wash on either side, and both column heads are treated equally. Use this
+   for "the hardware / what it enables", where the two lists are complementary
+   rather than opposed. #}
+<div class="lay L-split is-neutral" style="--headline-len: {{ view.headline_len }};">
 
-  <h2 class="headline headline-sm">{{ slide.headline }}</h2>
+  <div class="split-head region">
+    {% if slide.eyebrow %}<div class="sec-eyebrow">{{ slide.eyebrow }}</div>{% endif %}
+    <h2 class="sec-headline">{{ slide.headline }}</h2>
+  </div>
 
-  <div class="tc-grid">
-    <div class="tc-col">
-      <div class="tc-head">{{ slide.leftLabel }}</div>
-      <ul class="tc-items">
+  <div class="split-body region">
+    <div class="split-side region">
+      <div class="split-label">{{ slide.leftLabel }}</div>
+      <ul class="split-items">
         {% for i in slide.leftItems %}<li>{{ i }}</li>{% endfor %}
       </ul>
     </div>
-    <div class="tc-divider"></div>
-    <div class="tc-col">
-      <div class="tc-head accent">{{ slide.rightLabel }}</div>
-      <ul class="tc-items">
+
+    <div class="split-divider"></div>
+
+    <div class="split-side region">
+      <div class="split-label is-accent">{{ slide.rightLabel }}</div>
+      <ul class="split-items">
         {% for i in slide.rightItems %}<li>{{ i }}</li>{% endfor %}
       </ul>
     </div>
   </div>
 
-  <div class="spacer"></div>
-
-  <div class="footer">
-    <span class="brand">{{ brand }}</span>
-    {% if totalSlides > 1 %}<span class="pager">{{ slideNumber }} / {{ totalSlides }}</span>{% endif %}
-  </div>
+  {% include 'partials/meta.njk' %}
 
 </div>
 
 <style>
-  .twocol .headline-sm {
-    font-size: clamp(46px, calc(98px - var(--headline-len) * 0.68px), 72px);
-    max-width: 840px;
-  }
-  .tc-grid { margin-top: 52px; display: flex; gap: 32px; align-items: stretch; }
-  .tc-col { flex: 1; min-width: 0; }
-  .tc-divider { width: 3px; background: var(--card-border); flex: 0 0 auto; }
-  .tc-head {
-    font-family: var(--font-mono);
-    font-size: 25px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--fg-faint);
-    padding-bottom: 18px;
-    border-bottom: 3px solid var(--card-border);
-    margin-bottom: 24px;
-  }
-  .tc-head.accent { color: var(--accent); border-bottom-color: var(--accent); }
-  .tc-items { list-style: none; display: flex; flex-direction: column; gap: 20px; }
-  .tc-items li {
-    font-size: 29px;
-    line-height: 1.3;
-    color: var(--fg);
-    padding-left: 24px;
-    position: relative;
-    word-break: break-word;
-  }
-  .tc-items li::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 15px;
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    background: var(--accent);
-  }
+  /* Both sides read as peers, so the right column is distinguished only by its
+     label colour rather than by a filled background. */
+  .L-split.is-neutral .split-label.is-accent { color: var(--accent); }
 </style>

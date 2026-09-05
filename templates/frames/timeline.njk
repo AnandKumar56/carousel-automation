@@ -1,63 +1,43 @@
-{# TIMELINE - dated events in order, 2-4 entries. Use for rollout history,
-   announcement sequences, or "what happened when". #}
-{% set n = (slide.events | default([])) | length %}
-<div class="inner timeline timeline-{{ n }}">
+{# TIMELINE / timeline_scaled - dated events with PROPORTIONAL spacing.
 
-  {% if slide.eyebrow %}
-    <div class="eyebrow">{{ slide.eyebrow }}</div>
-  {% endif %}
+   THE DEFECT THIS FIXES: the old frame listed events at equal intervals, which
+   misrepresents pace. Three events in March and one in November drawn evenly
+   implies steady progress when the actual story is the gap. Here each connector's
+   flex-grow is the real elapsed time (computed in slidemodel.js), and the gap is
+   labelled, so a five-month pause looks like a five-month pause.
 
-  <h2 class="headline headline-sm">{{ slide.headline }}</h2>
+   When any date cannot be parsed the whole rail falls back to even spacing rather
+   than being proportional for some gaps and arbitrary for others - and it says so
+   in the render warnings. #}
+{% set n = view.timeline.events | length %}
+<div class="lay L-timeline events-{{ n }}" style="--headline-len: {{ view.headline_len }};">
 
-  <div class="tl-list">
-    {% for e in slide.events %}
-      <div class="tl-item">
-        <div class="tl-marker">
-          <span class="tl-dot"></span>
-          {% if not loop.last %}<span class="tl-line"></span>{% endif %}
-        </div>
+  <div class="tl-head region">
+    {% if slide.eyebrow %}<div class="sec-eyebrow">{{ slide.eyebrow }}</div>{% endif %}
+    <h2 class="sec-headline">{{ slide.headline }}</h2>
+  </div>
+
+  <div class="tl-rail region">
+    {% for e in view.timeline.events %}
+      <div class="tl-event{% if e.is_key %} is-key{% endif %}">
+        <div class="tl-marker"><span class="tl-dot"></span></div>
         <div class="tl-body">
           <div class="tl-date">{{ e.date }}</div>
           <div class="tl-text">{{ e.text }}</div>
+          {% if e.source %}<div class="tl-source">{{ e.source }}</div>{% endif %}
         </div>
       </div>
+
+      {% if not loop.last %}
+        {% set gap = view.timeline.gaps[loop.index0] %}
+        <div class="tl-gap" style="flex: {{ gap.flex }} 1 0;">
+          <div class="tl-connector"></div>
+          {% if gap.elapsed %}<div class="tl-elapsed">{{ gap.elapsed }}</div>{% endif %}
+        </div>
+      {% endif %}
     {% endfor %}
   </div>
 
-  <div class="spacer"></div>
-
-  <div class="footer">
-    <span class="brand">{{ brand }}</span>
-    {% if totalSlides > 1 %}<span class="pager">{{ slideNumber }} / {{ totalSlides }}</span>{% endif %}
-  </div>
+  {% include 'partials/meta.njk' %}
 
 </div>
-
-<style>
-  .timeline .headline-sm {
-    font-size: clamp(48px, calc(102px - var(--headline-len) * 0.7px), 76px);
-    max-width: 840px;
-  }
-  .tl-list { margin-top: 54px; display: flex; flex-direction: column; }
-  .tl-item { display: flex; gap: 28px; }
-  .tl-marker { flex: 0 0 auto; width: 24px; display: flex; flex-direction: column; align-items: center; }
-  .tl-dot {
-    width: 24px; height: 24px; border-radius: 50%;
-    background: var(--accent);
-    margin-top: 12px;
-    flex: 0 0 auto;
-  }
-  .tl-line { width: 4px; flex: 1; background: var(--card-border); margin: 8px 0; }
-  .tl-body { padding-bottom: 38px; }
-  .tl-date {
-    font-family: var(--font-mono);
-    font-size: 26px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--accent);
-  }
-  .tl-text { font-size: 36px; line-height: 1.3; color: var(--fg); margin-top: 10px; max-width: 780px; }
-
-  .timeline-4 .tl-text { font-size: 31px; }
-  .timeline-4 .tl-body { padding-bottom: 28px; }
-</style>

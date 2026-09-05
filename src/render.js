@@ -17,6 +17,8 @@ const fs = require('fs');
 const path = require('path');
 const nunjucks = require('nunjucks');
 const { chromium } = require('playwright');
+const { renderChart } = require('./charts');
+const { prepareSlide } = require('./slidemodel');
 
 const WIDTH = 1080;
 const HEIGHT = 1350;
@@ -29,6 +31,7 @@ const FRAME_TYPES = [
   'bullet-list',
   'stat',
   'stat-grid',
+  'chart',
   'comparison',
   'two-column',
   'numbered-steps',
@@ -38,6 +41,18 @@ const FRAME_TYPES = [
   'image-caption',
   'outro',
 ];
+
+/* Instagram's hard ceiling. Enforced against the CAROUSEL total rather than the
+ * length of whatever array arrived, because renders are batched. */
+const MAX_CAROUSEL_SLIDES = 10;
+
+/* Vertical budget for a chart inside the `chart` frame: the 1350 canvas less the
+ * 96px safe-area padding top and bottom, less the eyebrow, headline, takeaway and
+ * footer rows. Charts whose natural height exceeds this are scaled down by the
+ * browser (the SVG has a viewBox), which is why the value is generous - the
+ * alternative, letting the chart push the footer off the canvas, would trip the
+ * overflow guard and fail the whole batch. */
+const CHART_HEIGHT_BUDGET = 700;
 
 const THEMES = [
   'dark-tech',
@@ -62,6 +77,7 @@ const env = nunjucks.configure([TEMPLATES_DIR, FRAMES_DIR], {
 });
 
 const baseCss = fs.readFileSync(path.join(TEMPLATES_DIR, 'base.css'), 'utf8');
+const layoutsCss = fs.readFileSync(path.join(TEMPLATES_DIR, 'layouts.css'), 'utf8');
 const themesCss = fs.readFileSync(path.join(TEMPLATES_DIR, 'themes.css'), 'utf8');
 
 /* Local font CSS is optional. If a fonts dir with face declarations exists we
@@ -196,6 +212,33 @@ function validateSlide(slide, index) {
     }
   }
 
+  if (type === 'chart') {
+    if (!slide.headline) {
+      throw validationError(`${where}.headline is required for type "chart" - a chart without a stated finding makes the reader do the interpreting`);
+    }
+    if (!slide.chart || typeof slide.chart !== 'object') {
+      throw validationError(`${where}.chart must be an object with { kind, unit, series }`);
+    }
+    // The chart is BUILT here, during validation, so a malformed spec fails
+    // before a browser is launched and the caller gets charts.js's specific
+    // message ("needs at least 3 points") rather than a generic render failure.
+    try {
+      slide.__chart = renderChart(slide.chart, { width: 888, height: slide.chart.height });
+    } catch (err) {
+      // charts.js already tags caller-fault errors; re-scope the message so the
+      // caller knows which slide to fix.
+      const e = validationError(`${where}: ${err && err.message ? err.message : String(err)}`);
+      if (err && err.isValidation !== true) { e.isValidation = false; }
+      throw e;
+    }
+    if (slide.__chart.height > CHART_HEIGHT_BUDGET) {
+      throw validationError(
+        `${where}.chart renders ${slide.__chart.height}px tall, over the ${CHART_HEIGHT_BUDGET}px budget for this frame`
+        + ` - reduce the number of data points or set chart.height`
+      );
+    }
+  }
+
   if (type === 'image-caption') {
     // imageData is optional by design - the template renders a labelled
     // placeholder instead of failing the whole batch.
@@ -207,15 +250,128 @@ function validateSlide(slide, index) {
   return type;
 }
 
+/* ------------------------------------------------------------------ pagination */
+
+function firstNumber(/* ...candidates */) {
+  for (let i = 0; i < arguments.length; i++) {
+    const v = arguments[i];
+    if (v === null || v === undefined || v === '') { continue; }
+    const n = Number(v);
+    if (Number.isFinite(n)) { return n; }
+  }
+  return null;
+}
+
+/**
+ * Work out "n / N" for every slide in a request.
+ *
+ * THE BUG THIS FIXES: the renderer used to compute `totalSlides: slides.length`
+ * from whatever array it was handed. Because the workflow renders in batches of
+ * 3, a 7-slide carousel came out labelled "1/3 2/3 3/3 1/3 2/3 3/3 1/3". The
+ * pager was describing the batch, not the carousel.
+ *
+ * The fix is that pagination is now an INPUT, not something inferred: the plan
+ * knows the carousel length, so it states it. Array position is used only when
+ * nothing was supplied at all, which is the correct answer for a one-shot render
+ * of a whole carousel and keeps existing callers working.
+ */
+function resolvePagination(slides, options) {
+  const opts = options || {};
+
+  const batchTotal = firstNumber(opts.total_slides, opts.totalSlides);
+  // A batch may state where it sits in the carousel instead of numbering each
+  // slide, e.g. "these 3 slides start at 4". 1-based to match the pager.
+  const startIndex = firstNumber(opts.start_index, opts.startIndex, opts.slide_offset);
+
+  if (batchTotal !== null && (!Number.isInteger(batchTotal) || batchTotal < 1)) {
+    throw validationError(`total_slides must be a positive integer, got ${JSON.stringify(opts.total_slides ?? opts.totalSlides)}`);
+  }
+  if (startIndex !== null && (!Number.isInteger(startIndex) || startIndex < 1)) {
+    throw validationError(`start_index must be a positive integer (1-based), got ${JSON.stringify(opts.start_index ?? opts.startIndex ?? opts.slide_offset)}`);
+  }
+
+  const anySlideStatesTotal = slides.some(function (s) {
+    return firstNumber(s && s.total_slides, s && s.totalSlides) !== null;
+  });
+  const supplied = batchTotal !== null || startIndex !== null || anySlideStatesTotal;
+
+  // Checked before per-slide numbering so the caller gets the cause ("you sent
+  // 4 slides for a 3-slide carousel") rather than the symptom ("slide 4 of 3").
+  if (batchTotal !== null && slides.length > batchTotal) {
+    throw validationError(`request carries ${slides.length} slides but total_slides is ${batchTotal}`);
+  }
+
+  const pages = slides.map(function (slide, i) {
+    const s = slide || {};
+    const index = firstNumber(s.slide_index, s.slideIndex, s.index)
+      ?? (startIndex !== null ? startIndex + i : i + 1);
+    const total = firstNumber(s.total_slides, s.totalSlides)
+      ?? batchTotal
+      ?? (startIndex !== null ? startIndex + slides.length - 1 : slides.length);
+    return { index: index, total: total };
+  });
+
+  pages.forEach(function (p, i) {
+    if (!Number.isInteger(p.index) || p.index < 1) {
+      throw validationError(`slides[${i}].slide_index must be a positive integer, got ${JSON.stringify(p.index)}`);
+    }
+    if (!Number.isInteger(p.total) || p.total < 1) {
+      throw validationError(`slides[${i}].total_slides must be a positive integer, got ${JSON.stringify(p.total)}`);
+    }
+    if (p.index > p.total) {
+      throw validationError(`slides[${i}] is numbered ${p.index} of ${p.total} - the index cannot exceed the total`);
+    }
+    if (p.total > MAX_CAROUSEL_SLIDES) {
+      throw validationError(`slides[${i}].total_slides is ${p.total}; Instagram carousels cap at ${MAX_CAROUSEL_SLIDES}`);
+    }
+  });
+
+  // One request must describe one carousel. Disagreeing totals mean the caller
+  // merged two carousels, and the resulting pagination would be nonsense.
+  const totals = {};
+  pages.forEach(function (p) { totals[p.total] = true; });
+  const distinct = Object.keys(totals);
+  if (distinct.length > 1) {
+    throw validationError(`slides disagree on total_slides (${distinct.join(', ')}); every slide in one carousel must state the same total`);
+  }
+
+  // Duplicate numbering silently produces two slides labelled "3 / 7".
+  const seen = {};
+  pages.forEach(function (p, i) {
+    if (seen[p.index] !== undefined) {
+      throw validationError(`slides[${i}] and slides[${seen[p.index]}] are both numbered ${p.index}`);
+    }
+    seen[p.index] = i;
+  });
+
+  // Only meaningful when the caller told us the carousel size: a batch of 4
+  // cannot fit inside a 3-slide carousel.
+  if (supplied && slides.length > pages[0].total) {
+    throw validationError(`request carries ${slides.length} slides but total_slides is ${pages[0].total}`);
+  }
+
+  return pages;
+}
+
 function buildHtml(slide, opts) {
   const type = opts.type;
   return env.render('shell.njk', {
     slide,
+    /* The view model: everything the template must not compute itself -
+     * attribution, proportional timeline gaps, lead-figure selection. Built in
+     * slidemodel.js so the logic is testable without a browser and cannot drift
+     * between the thirteen frames the way the original per-template rules did. */
+    view: prepareSlide(slide, type),
+    // Pre-rendered SVG plus its metadata, attached by validateSlide. Passed
+    // separately from `slide` so the template never has to know that a field
+    // beginning with __ is internal.
+    chart: slide.__chart || null,
     theme: opts.theme,
     brand: opts.brand,
     slideNumber: opts.slideNumber,
     totalSlides: opts.totalSlides,
     baseCss,
+    layoutsCss,
     themesCss,
     fontCss,
     templateFile: `frames/${type}.njk`,
@@ -224,16 +380,18 @@ function buildHtml(slide, opts) {
 
 /**
  * Render slides to PNG buffers.
+ *
  * @param {Array<object>} slides
- * @param {object} [options] theme, brand
- * @returns {Promise<Array<{index:number,type:string,buffer:Buffer,width:number,height:number}>>}
+ * @param {object} [options] theme, brand, and optionally total_slides /
+ *   start_index so a partial batch paginates against the real carousel length.
+ * @returns {Promise<Array<{index:number,slideIndex:number,totalSlides:number,type:string,buffer:Buffer,width:number,height:number}>>}
  */
 async function renderSlides(slides, options = {}) {
   if (!Array.isArray(slides) || slides.length === 0) {
     throw validationError('slides must be a non-empty array');
   }
-  if (slides.length > 10) {
-    throw validationError(`slides has ${slides.length} entries; Instagram carousels cap at 10`);
+  if (slides.length > MAX_CAROUSEL_SLIDES) {
+    throw validationError(`slides has ${slides.length} entries; Instagram carousels cap at ${MAX_CAROUSEL_SLIDES}`);
   }
 
   const theme = THEMES.includes(options.theme) ? options.theme : DEFAULT_THEME;
@@ -241,6 +399,7 @@ async function renderSlides(slides, options = {}) {
 
   // Validate everything BEFORE launching a browser, so bad input costs nothing.
   const types = slides.map((s, i) => validateSlide(s, i));
+  const pages = resolvePagination(slides, options);
 
   const browser = await chromium.launch({
     args: ['--no-sandbox', '--disable-dev-shm-usage', '--font-render-hinting=none'],
@@ -269,8 +428,8 @@ async function renderSlides(slides, options = {}) {
         type: types[i],
         theme: slides[i].theme && THEMES.includes(slides[i].theme) ? slides[i].theme : theme,
         brand,
-        slideNumber: i + 1,
-        totalSlides: slides.length,
+        slideNumber: pages[i].index,
+        totalSlides: pages[i].total,
       });
 
       await page.setContent(html, { waitUntil: 'domcontentloaded' });
@@ -314,7 +473,12 @@ async function renderSlides(slides, options = {}) {
       }
 
       out.push({
-        index: i + 1,
+        // `index` is the slide's position in the CAROUSEL, not in this request,
+        // so filenames and Drive ordering stay correct across batched renders.
+        index: pages[i].index,
+        slideIndex: pages[i].index,
+        totalSlides: pages[i].total,
+        batchPosition: i + 1,
         type: types[i],
         buffer,
         width: size.width,
@@ -330,10 +494,14 @@ async function renderSlides(slides, options = {}) {
 
 module.exports = {
   renderSlides,
+  resolvePagination,
+  validationError,
   FRAME_TYPES,
   THEMES,
   WIDTH,
   HEIGHT,
+  MAX_CAROUSEL_SLIDES,
+  CHART_HEIGHT_BUDGET,
   DEFAULT_THEME,
   DEFAULT_BRAND,
 };

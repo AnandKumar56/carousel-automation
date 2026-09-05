@@ -26,6 +26,13 @@ const {
   DEFAULT_THEME,
   DEFAULT_BRAND,
 } = require('./render');
+const { CHART_KINDS } = require('./charts');
+const {
+  CHART_MIN_POINTS,
+  CHART_MAX_POINTS,
+  LAYOUTS,
+  FRAME_LAYOUTS,
+} = require('./contracts');
 
 const PORT = Number(process.env.PORT || 8080);
 const API_KEY = process.env.API_KEY || '';
@@ -100,6 +107,8 @@ app.get('/health', (req, res) => {
     status: 'ok',
     dimensions: `${WIDTH}x${HEIGHT}`,
     frame_types: FRAME_TYPES,
+    layouts: LAYOUTS,
+    chart_kinds: CHART_KINDS,
     themes: THEMES,
     auth_required: Boolean(API_KEY),
     batches_cached: batches.size,
@@ -111,15 +120,132 @@ app.get('/templates', (req, res) => {
     dimensions: { width: WIDTH, height: HEIGHT, aspect_ratio: '4:5' },
     default_theme: DEFAULT_THEME,
     themes: THEMES,
+    /* Frames are the caller-facing vocabulary; layouts are the structural
+     * skeletons behind them. Exposed so a planner can reason about silhouette
+     * variety across a carousel rather than picking frames blindly - two
+     * consecutive slides on the same layout will look like the same slide. */
+    layouts: LAYOUTS,
+    frame_layouts: FRAME_LAYOUTS,
+    /* Attribution is accepted on every frame and rendered on every slide. Omitting
+     * it does not fail the render - it prints "Source not stated", which is
+     * deliberately visible so a reviewer can catch it. */
+    attribution: {
+      sources: 'string | string[] | {name,url}[] - publication names or URLs; URLs resolve to a name',
+      as_of: 'string - e.g. "Aug 2026". Include it for any figure that ages.',
+      per_item: 'stats[], bullets[] and events[] each accept their own source / source_tier',
+      source_tier: 'number 1-4. Tier 4 (social, blogs) is labelled "unverified" on the slide rather than dropped.',
+    },
+    /* Pagination is an INPUT, not something the renderer infers. Send these when
+     * rendering part of a carousel; without them the renderer falls back to array
+     * position, which is only correct for a one-shot render of the whole thing. */
+    pagination: {
+      total_slides: 'number - how many slides the finished carousel has',
+      start_index: 'number - 1-based position of the first slide in this batch',
+      per_slide: 'slide.slide_index and slide.total_slides override the batch values',
+    },
     frame_types: {
-      cover: { required: ['headline'], optional: ['eyebrow', 'subheadline', 'source'] },
-      'bullet-list': { required: ['headline', 'bullets (1-5)'], optional: ['eyebrow', 'subheadline'] },
-      stat: { required: ['value'], optional: ['eyebrow', 'unit', 'label', 'body'] },
+      cover: {
+        layout: 'editorial_hero (bottom-anchored)',
+        required: ['headline'],
+        optional: ['eyebrow', 'subheadline', 'sources', 'as_of'],
+      },
+      'big-text': {
+        layout: 'editorial_hero (centre-anchored)',
+        required: ['text'],
+        optional: ['eyebrow', 'footnote', 'sources'],
+        note: 'For one short statement. Keep under 120 chars.',
+      },
+      chart: {
+        layout: 'chart_dominant',
+        required: ['headline', 'chart'],
+        optional: ['eyebrow', 'subheadline', 'takeaway'],
+        note: 'headline should state the FINDING, not the chart subject. The chart draws its own source, so the footer line is suppressed on this frame.',
+      },
+      stat: {
+        layout: 'metric_cards (single hero figure)',
+        required: ['value'],
+        optional: ['eyebrow', 'unit', 'label', 'body', 'sources', 'as_of'],
+      },
+      'stat-grid': {
+        layout: 'metric_cards',
+        required: ['headline', 'stats (2-4, each {value,label})'],
+        optional: ['eyebrow', 'stats[].unit', 'stats[].source', 'stats[].lead'],
+        note: 'One card is the lead and is set larger. Set lead:true to choose it; otherwise the first is used. Magnitude is never used to pick it.',
+      },
       comparison: {
+        layout: 'split_comparison (adversarial)',
         required: ['headline', 'left side content', 'right side content'],
         optional: ['eyebrow', 'leftLabel', 'rightLabel', 'leftValue', 'rightValue', 'leftItems', 'rightItems', 'leftText', 'rightText'],
+        note: 'The right side carries the accent wash - put the side you are arguing for there.',
       },
-      outro: { required: ['headline'], optional: ['eyebrow', 'subheadline', 'cta', 'sources'] },
+      'two-column': {
+        layout: 'split_comparison (neutral)',
+        required: ['headline', 'leftLabel', 'rightLabel', 'leftItems', 'rightItems'],
+        optional: ['eyebrow'],
+        note: 'For two complementary facets, not an opposition. Use `comparison` for that.',
+      },
+      'bullet-list': {
+        layout: 'evidence_list',
+        required: ['headline', 'bullets (1-5)'],
+        optional: ['eyebrow', 'subheadline'],
+        note: 'Bullets may be plain strings, or {figure,text,source,source_tier} to get a large leading figure and per-row attribution.',
+      },
+      'numbered-steps': {
+        layout: 'diagram_explainer',
+        required: ['headline', 'steps (2-4)'],
+        optional: ['eyebrow', 'steps[].detail'],
+      },
+      timeline: {
+        layout: 'timeline_scaled',
+        required: ['headline', 'events (2-4, each {date,text})'],
+        optional: ['eyebrow', 'events[].source', 'events[].emphasis'],
+        note: 'Gaps are drawn PROPORTIONAL to elapsed time. Use parseable dates (2026-03, "March 2026", 2026) or the rail falls back to even spacing.',
+      },
+      quote: {
+        layout: 'quote_evidence',
+        required: ['quote (under 240 chars)'],
+        optional: ['attribution', 'attributionRole', 'sources'],
+      },
+      'image-caption': {
+        layout: 'image_annotated (full bleed)',
+        required: ['headline'],
+        optional: ['eyebrow', 'caption', 'imageData', 'sources'],
+        note: 'imageData must be a data: URI - network fetches are blocked during render. Without it a labelled placeholder is drawn rather than failing the batch.',
+      },
+      outro: {
+        layout: 'conclusion_cta',
+        required: ['headline'],
+        optional: ['subheadline', 'cta', 'source_manifest'],
+        note: 'source_manifest lists every source used across the carousel. When present it replaces the footer source line.',
+      },
+    },
+    chart: {
+      kinds: CHART_KINDS.map((kind) => ({
+        kind,
+        min_points: CHART_MIN_POINTS[kind],
+        max_points: CHART_MAX_POINTS[kind],
+      })),
+      required: ['kind', 'unit', 'series (each point needs a label and a finite value)'],
+      optional: ['sources or source', 'as_of', 'series_names (grouped-bar only)', 'sort', 'height'],
+      series_point: {
+        label: 'string - required, no unlabelled points',
+        value: 'number - required and finite; null is refused, not drawn as zero',
+        values: 'number[] - grouped-bar only, one per series',
+        date: 'YYYY | YYYY-MM | YYYY-MM-DD - required for timeline-scaled',
+        emphasis: 'boolean - marks the point the slide is about',
+      },
+      sort: {
+        modes: ['none', 'asc', 'desc'],
+        default: 'none',
+        note: 'Opt-in on purpose: a comparison often leads with its subject, and reordering would change what the slide says. Rejected for line, progression and timeline-scaled, where order is the axis.',
+      },
+      rules: [
+        'value axes always include zero; baselines cannot be truncated',
+        'every point is labelled and the unit is stated on the chart',
+        'the source is baked into the SVG so it cannot be lost',
+        'a chart below its minimum point count is refused - use a metric card instead',
+        'timeline-scaled requires real dates; spacing is never invented',
+      ],
     },
   });
 });
@@ -134,20 +260,29 @@ app.post('/render', requireKey, rateLimit, async (req, res) => {
     const rendered = await renderSlides(slides, {
       theme: body.theme,
       brand: body.brand,
+      // Pagination travels with the request so a batch of 3 out of 7 still
+      // renders "4 / 7" rather than "1 / 3". Per-slide slide_index /
+      // total_slides take precedence over these batch-level values.
+      total_slides: body.total_slides,
+      start_index: body.start_index,
     });
 
     const batchId = crypto.randomBytes(9).toString('hex');
+    const nameFor = (r) => `slide_${String(r.index).padStart(2, '0')}.png`;
 
     if (responseMode === 'base64') {
       return res.json({
         batch_id: batchId,
         count: rendered.length,
+        total_slides: rendered[0].totalSlides,
         dimensions: { width: WIDTH, height: HEIGHT },
         processing_ms: Date.now() - started,
         slides: rendered.map((r) => ({
           index: r.index,
+          slide_index: r.slideIndex,
+          total_slides: r.totalSlides,
           type: r.type,
-          filename: `slide_${String(r.index).padStart(2, '0')}.png`,
+          filename: nameFor(r),
           width: r.width,
           height: r.height,
           b64: r.buffer.toString('base64'),
@@ -160,7 +295,7 @@ app.post('/render', requireKey, rateLimit, async (req, res) => {
       slides: rendered.map((r) => ({
         index: r.index,
         type: r.type,
-        filename: `slide_${String(r.index).padStart(2, '0')}.png`,
+        filename: nameFor(r),
         buffer: r.buffer,
         width: r.width,
         height: r.height,
@@ -172,16 +307,19 @@ app.post('/render', requireKey, rateLimit, async (req, res) => {
     return res.json({
       batch_id: batchId,
       count: rendered.length,
+      total_slides: rendered[0].totalSlides,
       dimensions: { width: WIDTH, height: HEIGHT },
       expires_in_seconds: Math.floor(TTL_MS / 1000),
       processing_ms: Date.now() - started,
       slides: rendered.map((r) => ({
         index: r.index,
+        slide_index: r.slideIndex,
+        total_slides: r.totalSlides,
         type: r.type,
-        filename: `slide_${String(r.index).padStart(2, '0')}.png`,
+        filename: nameFor(r),
         width: r.width,
         height: r.height,
-        url: `${base}/render/${batchId}/slide_${String(r.index).padStart(2, '0')}.png`,
+        url: `${base}/render/${batchId}/${nameFor(r)}`,
       })),
     });
   } catch (err) {

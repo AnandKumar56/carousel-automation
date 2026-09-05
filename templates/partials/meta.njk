@@ -1,0 +1,24 @@
+{# Slide meta block - source attribution plus the brand row.
+
+   Included by EVERY layout. Attribution is not optional and not a template
+   decision: the audit found zero source lines across all 12 original frames,
+   which for a feed publishing figures is the difference between reporting and
+   asserting. When no source was supplied this prints "Source not stated" rather
+   than nothing, so a missing citation is visible to a human reviewer instead of
+   looking like a slide that needed none.
+
+   `suppress_meta_source` is set for the two layouts that carry attribution
+   somewhere better: the chart bakes its source into the SVG, and the outro prints
+   a full manifest. Without it those slides printed a real source list and then
+   "Source not stated" directly underneath.
+
+   The source sits ABOVE the brand row so it reads as part of the content. #}
+<div class="slide-meta region">
+  {% if view.attribution.text and not view.suppress_meta_source %}
+    <div class="meta-source{% if not view.attribution.complete %} is-missing{% endif %}">{{ view.attribution.text }}</div>
+  {% endif %}
+  <div class="meta-row">
+    <span class="brand">{{ brand }}</span>
+    {% if totalSlides > 1 %}<span class="pager">{{ slideNumber }} / {{ totalSlides }}</span>{% endif %}
+  </div>
+</div>

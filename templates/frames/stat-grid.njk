@@ -1,72 +1,45 @@
-{# STAT-GRID - 2 to 4 numbers together. Use when several figures matter equally,
-   rather than one hero stat. 2 renders as one row, 3-4 as a 2x2 grid. #}
-{% set n = (slide.stats | default([])) | length %}
-<div class="inner statgrid statgrid-{{ n }}">
+{# STAT-GRID / metric_cards - 2 to 4 figures that matter together.
 
-  {% if slide.eyebrow %}
-    <div class="eyebrow">{{ slide.eyebrow }}</div>
-  {% endif %}
+   THE DEFECT THIS FIXES: the old version gave "3,400" and "40" identical visual
+   weight in identical cards, so a slide with one headline figure and three
+   supporting ones read as four equal facts. Here one card is the lead - larger
+   type, accent fill, and in the 3-card case a full-width row - so the layout
+   itself states which number the slide is about.
 
-  {% if slide.headline %}
-    <h2 class="headline headline-sm">{{ slide.headline }}</h2>
-  {% endif %}
+   Per-card source badges appear only when the figures genuinely come from
+   different publications; when they all share one source the footer says it once.
 
-  <div class="sg-grid">
-    {% for s in slide.stats %}
-      <div class="sg-cell">
-        <div class="sg-value">{{ s.value }}</div>
-        {% if s.unit %}<div class="sg-unit">{{ s.unit }}</div>{% endif %}
-        <div class="sg-label">{{ s.label }}</div>
+   Card count drives the grid shape via the n-N class (see layouts.css). #}
+{% set n = view.metrics | length %}
+<div class="lay L-metrics n-{{ n }}">
+
+  <div class="metrics-head region">
+    {% if slide.eyebrow %}<div class="sec-eyebrow">{{ slide.eyebrow }}</div>{% endif %}
+    {% if slide.headline %}<h2 class="sec-headline">{{ slide.headline }}</h2>{% endif %}
+  </div>
+
+  <div class="metrics-grid region">
+    {% for m in view.metrics %}
+      <div class="metric-card{% if m.is_lead %} is-lead{% endif %}" style="--value-len: {{ m.value_len }};">
+        <div class="metric-value">{{ m.value }}</div>
+        {% if m.unit %}<div class="metric-unit">{{ m.unit }}</div>{% endif %}
+        <div class="metric-label">{{ m.label }}</div>
+        {% if view.show_metric_sources and m.source %}
+          <div class="metric-source">{{ m.source }}</div>
+        {% endif %}
       </div>
     {% endfor %}
   </div>
 
-  <div class="spacer"></div>
-
-  <div class="footer">
-    <span class="brand">{{ brand }}</span>
-    {% if totalSlides > 1 %}<span class="pager">{{ slideNumber }} / {{ totalSlides }}</span>{% endif %}
-  </div>
+  {% include 'partials/meta.njk' %}
 
 </div>
 
 <style>
-  .statgrid .headline-sm {
-    font-size: clamp(46px, calc(96px - var(--headline-len) * 0.66px), 70px);
-    max-width: 840px;
+  /* Headline is held back here: on this layout the figures are the subject and the
+     headline only frames them. */
+  .L-metrics .sec-headline {
+    font-size: clamp(42px, calc(88px - var(--headline-len) * 0.6px), 64px);
+    margin-top: 18px;
   }
-  .sg-grid { margin-top: 52px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-  .statgrid-2 .sg-grid { grid-template-columns: 1fr 1fr; }
-  .statgrid-3 .sg-grid .sg-cell:first-child { grid-column: 1 / -1; }
-
-  .sg-cell {
-    background: var(--card-bg);
-    border: 2px solid var(--card-border);
-    border-radius: 20px;
-    padding: 34px 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .sg-value {
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: 84px;
-    line-height: 0.98;
-    letter-spacing: -0.03em;
-    color: var(--accent);
-    font-variant-numeric: tabular-nums;
-  }
-  .sg-unit {
-    font-family: var(--font-mono);
-    font-size: 24px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--fg-muted);
-  }
-  .sg-label { font-size: 28px; line-height: 1.3; color: var(--fg); margin-top: 8px; }
-
-  .statgrid-2 .sg-value { font-size: 108px; }
-  .statgrid-2 .sg-label { font-size: 32px; }
-  .statgrid-4 .sg-value { font-size: 74px; }
 </style>

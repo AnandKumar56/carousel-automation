@@ -10,6 +10,7 @@
  */
 
 const http = require('http');
+const { FRAME_TYPES, THEMES } = require('./render');
 
 process.env.PORT = process.env.PORT || '8123';
 process.env.API_KEY = 'deploycheck-key-abc123';
@@ -69,8 +70,16 @@ function check(name, pass, detail) {
   try { health = JSON.parse(h.buf.toString()); } catch (e) { /* noop */ }
   check('health returns 200', h.status === 200, `status=${h.status}`);
   check('auth_required is true', health.auth_required === true, `got=${health.auth_required}`);
-  check('12 frame types exposed', (health.frame_types || []).length === 12, `got=${(health.frame_types || []).length}`);
-  check('11 themes exposed', (health.themes || []).length === 11, `got=${(health.themes || []).length}`);
+  /* Counted against the source of truth rather than a literal, so adding a frame
+   * or theme does not fail a deploy check that has nothing to do with it. What
+   * matters here is that /health reports the full set - a truncated list would
+   * mean a workflow discovering capabilities gets an incomplete answer. */
+  check(`all ${FRAME_TYPES.length} frame types exposed`,
+    (health.frame_types || []).length === FRAME_TYPES.length,
+    `got=${(health.frame_types || []).length}`);
+  check(`all ${THEMES.length} themes exposed`,
+    (health.themes || []).length === THEMES.length,
+    `got=${(health.themes || []).length}`);
 
   // 2. auth is enforced
   const noKey = await req('POST', '/render', { body: { slides: [] } });
@@ -129,6 +138,97 @@ function check(name, pass, detail) {
     body: { slides: [{ type: 'big-text', text: 'x'.repeat(200) }] },
   });
   check('over-long content returns 400', badContent.status === 400, `status=${badContent.status}`);
+
+  /* 6. pagination survives the HTTP boundary.
+   * This is the batching bug the workflow actually hit: 3 slides at a time out of
+   * 7, which used to come back numbered 1/3 2/3 3/3. Checked over HTTP rather
+   * than in unit tests alone, because the batch-level fields have to be read off
+   * the request body and it is the wiring that broke. */
+  const paged = await req('POST', '/render', {
+    headers: { 'x-api-key': KEY },
+    body: {
+      total_slides: 7,
+      start_index: 4,
+      response_mode: 'urls',
+      slides: [
+        { type: 'big-text', text: 'Four' },
+        { type: 'big-text', text: 'Five' },
+        { type: 'big-text', text: 'Six' },
+      ],
+    },
+  });
+  let pagedOut = {};
+  try { pagedOut = JSON.parse(paged.buf.toString()); } catch (e) { /* noop */ }
+  const pagers = (pagedOut.slides || []).map((s) => `${s.slide_index}/${s.total_slides}`);
+  check(
+    'batch of 3 from a 7-slide carousel paginates 4/7 5/7 6/7',
+    pagers.join(' ') === '4/7 5/7 6/7',
+    pagers.length ? pagers.join(' ') : `status=${paged.status}`
+  );
+  check(
+    'filenames follow the carousel index, not the batch position',
+    (pagedOut.slides || []).map((s) => s.filename).join(',')
+      === 'slide_04.png,slide_05.png,slide_06.png',
+    (pagedOut.slides || []).map((s) => s.filename).join(',') || '(none)'
+  );
+
+  /* 7. a chart renders end to end. The SVG is built in-process, but this is the
+   * only check that the inline SVG survives Playwright and produces a real PNG in
+   * a hosted container. */
+  const chart = await req('POST', '/render', {
+    headers: { 'x-api-key': KEY },
+    body: {
+      response_mode: 'urls',
+      slides: [{
+        type: 'chart',
+        eyebrow: 'By the numbers',
+        headline: 'Ad revenue grew nearly 7x in five months',
+        chart: {
+          kind: 'progression',
+          unit: 'USD_M',
+          sources: [{ name: 'The Information' }],
+          series: [
+            { label: 'Apr 2026', value: 12 },
+            { label: 'Aug 2026', value: 83, emphasis: true },
+          ],
+        },
+        takeaway: 'The pace is what makes this a $1B annualized run rate.',
+      }],
+    },
+  });
+  let chartOut = {};
+  try { chartOut = JSON.parse(chart.buf.toString()); } catch (e) { /* noop */ }
+  check('chart slide renders', chart.status === 200,
+    chart.status === 200 ? 'status=200' : `status=${chart.status} ${chartOut.error || ''}`);
+
+  const chartSlide = (chartOut.slides || [])[0] || {};
+  if (chartOut.batch_id && chartSlide.filename) {
+    const img = await req('GET', `/render/${chartOut.batch_id}/${chartSlide.filename}`);
+    const size = pngSize(img.buf);
+    check('chart PNG bytes are 1080x1350',
+      Boolean(size) && size.w === 1080 && size.h === 1350,
+      size ? `${size.w}x${size.h} (${(img.buf.length / 1024).toFixed(0)} KB)` : 'not a PNG');
+  } else {
+    check('chart PNG bytes are 1080x1350', false, 'no chart batch returned');
+  }
+
+  /* 8. an unchartable spec is the caller's fault, not a 500. A workflow needs to
+   * be told to fall back to a metric card, not sent down an error path. */
+  const badChart = await req('POST', '/render', {
+    headers: { 'x-api-key': KEY },
+    body: {
+      slides: [{
+        type: 'chart',
+        headline: 'One point is not a trend',
+        chart: { kind: 'line', unit: 'USD_M', series: [{ label: 'Apr', value: 12 }] },
+      }],
+    },
+  });
+  let badChartOut = {};
+  try { badChartOut = JSON.parse(badChart.buf.toString()); } catch (e) { /* noop */ }
+  check('unchartable data returns 400 with a usable message',
+    badChart.status === 400 && /at least 3 data points/.test(badChartOut.error || ''),
+    `status=${badChart.status} ${badChartOut.error || ''}`);
 
   const failed = checks.filter((c) => !c.pass);
   console.log('');

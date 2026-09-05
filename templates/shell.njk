@@ -4,13 +4,16 @@
 <meta charset="utf-8">
 <title>{{ slide.headline | default('slide') }}</title>
 <style>{{ baseCss | safe }}</style>
+<style>{{ layoutsCss | safe }}</style>
 <style>{{ themesCss | safe }}</style>
 {% if fontCss %}<style>{{ fontCss | safe }}</style>{% endif %}
 {% if slide.extraCss %}<style>{{ slide.extraCss | safe }}</style>{% endif %}
 </head>
 <body>
-<div class="slide theme-{{ theme }}" id="slide"
-     style="--headline-len: {{ (slide.headline | default('')) | length }};">
+{# Load order matters: base, then layouts (geometry), then themes (colour only).
+   Themes come last so a theme can override a colour token without any chance of
+   a layout rule overriding it back, and layouts never declare colour. #}
+<div class="slide theme-{{ theme }} layout-{{ view.layout }}" id="slide">
 
   <div class="bg-layer bg-gradient"></div>
   <div class="bg-layer bg-grid"></div>

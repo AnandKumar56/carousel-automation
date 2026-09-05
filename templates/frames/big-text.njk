@@ -1,44 +1,40 @@
-{# BIG-TEXT - one short statement filling the whole slide. Maximum impact,
-   zero decoration. Use for the single most important line in a carousel. #}
-<div class="inner bigtext">
+{# BIG-TEXT / editorial_hero (centre-anchored).
 
-  {% if slide.eyebrow %}
-    <div class="eyebrow">{{ slide.eyebrow }}</div>
-  {% endif %}
+   Shares the hero family with `cover` rather than reimplementing a near-identical
+   skeleton, but uses `at-centre` so the statement floats dead centre with space
+   above AND below it. That is a different mass distribution from the cover's
+   bottom-anchored block - in the first pass both were bottom-anchored and the two
+   slides were structurally indistinguishable, which defeated the point of the
+   rebuild.
 
-  <div class="spacer"></div>
+   No subheadline and no swipe row: a single statement should not be qualified. #}
+<div class="lay L-hero at-centre" style="--headline-len: {{ view.headline_len }};">
 
-  <div class="bt-body" style="--bt-len: {{ (slide.text | default('')) | length }};">
-    <div class="bt-text">{{ slide.text }}</div>
-    {% if slide.footnote %}<div class="bt-footnote">{{ slide.footnote }}</div>{% endif %}
+  <div class="hero-rail"></div>
+
+  <div class="hero-eyebrow region">
+    {% if slide.eyebrow %}<div class="sec-eyebrow">{{ slide.eyebrow }}</div>{% endif %}
   </div>
 
-  <div class="spacer"></div>
-
-  <div class="footer">
-    <span class="brand">{{ brand }}</span>
-    {% if totalSlides > 1 %}<span class="pager">{{ slideNumber }} / {{ totalSlides }}</span>{% endif %}
+  <div class="hero-body region">
+    <h1 class="hero-headline">{{ slide.text }}</h1>
+    {% if slide.footnote %}<p class="bt-footnote">{{ slide.footnote }}</p>{% endif %}
   </div>
+
+  <div class="hero-swipe region"></div>
+
+  {% include 'partials/meta.njk' %}
 
 </div>
 
 <style>
-  .bt-body { display: flex; flex-direction: column; gap: 40px; }
-  .bt-text {
-    font-family: var(--font-display);
-    font-weight: 800;
-    line-height: 1.02;
-    letter-spacing: -0.03em;
-    color: var(--fg-strong);
-    /* Very aggressive scaling - this frame is for SHORT text only. */
-    font-size: clamp(60px, calc(210px - var(--bt-len) * 1.5px), 148px);
-  }
+  .L-hero .hero-swipe { padding: 0; height: 0; }
   .bt-footnote {
-    font-family: var(--font-mono);
-    font-size: 26px;
-    letter-spacing: 0.08em;
-    color: var(--fg-faint);
-    max-width: 760px;
-    line-height: 1.4;
+    font-size: 27px;
+    line-height: 1.34;
+    color: var(--fg-muted);
+    max-width: 780px;
+    border-left: 5px solid var(--accent);
+    padding-left: 22px;
   }
 </style>

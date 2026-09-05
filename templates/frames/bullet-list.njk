@@ -1,63 +1,44 @@
-{# BULLET-LIST - a headline plus 2-5 short points. Font size steps down as the
-   list grows so five bullets still fit inside 1080x1350 without overflow. #}
-{% set n = (slide.bullets | default([])) | length %}
-<div class="inner bullets bullets-{{ n }}">
+{# BULLET-LIST / evidence_list - claims with their own attribution.
 
-  {% if slide.eyebrow %}
-    <div class="eyebrow">{{ slide.eyebrow }}</div>
-  {% endif %}
+   THE DEFECT THIS FIXES: the old bullet-list rendered unattributed assertions -
+   a dot, a sentence, nothing else - in a feed whose whole value is reporting
+   figures. Here each row can carry its own figure and its own source, so a reader
+   can see which publication supports which claim.
 
-  <h2 class="headline headline-sm">{{ slide.headline }}</h2>
+   Rows are separated by rules and the list is vertically centred in a 1fr region,
+   which removes the trailing void the audit measured. A claim resting only on a
+   tier-4 source is labelled on the slide rather than dropped: dropping it loses
+   real reporting, printing it unmarked beside a Reuters figure implies equal
+   standing.
 
-  {% if slide.subheadline %}
-    <p class="subheadline sub-sm">{{ slide.subheadline }}</p>
-  {% endif %}
+   Plain-string bullets still work; the object form is what unlocks attribution. #}
+{% set n = view.evidence | length %}
+<div class="lay L-evidence items-{{ n }}" style="--headline-len: {{ view.headline_len }};">
 
-  <ul class="bullet-list">
-    {% for b in slide.bullets %}
-      <li class="bullet">
-        <span class="dot"></span>
-        <span class="bullet-text">{{ b }}</span>
+  <div class="ev-head region">
+    {% if slide.eyebrow %}<div class="sec-eyebrow">{{ slide.eyebrow }}</div>{% endif %}
+    <h2 class="sec-headline">{{ slide.headline }}</h2>
+    {% if slide.subheadline %}<p class="sec-sub">{{ slide.subheadline }}</p>{% endif %}
+  </div>
+
+  <ul class="ev-list region">
+    {% for e in view.evidence %}
+      <li class="ev-item">
+        {% if e.figure %}
+          <div class="ev-figure">{{ e.figure }}</div>
+        {% else %}
+          <div class="ev-marker"></div>
+        {% endif %}
+        <div class="ev-body">
+          <div class="ev-text">{{ e.text }}</div>
+          {% if e.source %}
+            <div class="ev-source{% if e.weak %} is-weak{% endif %}">{{ e.source }}{% if e.weak %} · unverified{% endif %}</div>
+          {% endif %}
+        </div>
       </li>
     {% endfor %}
   </ul>
 
-  <div class="spacer"></div>
-
-  <div class="footer">
-    <span class="brand">{{ brand }}</span>
-    {% if totalSlides > 1 %}
-      <span class="pager">{{ slideNumber }} / {{ totalSlides }}</span>
-    {% endif %}
-  </div>
+  {% include 'partials/meta.njk' %}
 
 </div>
-
-<style>
-  .bullets .headline-sm {
-    font-size: clamp(52px, calc(112px - var(--headline-len) * 0.75px), 82px);
-    max-width: 840px;
-  }
-  .bullets .sub-sm { font-size: 34px; margin-top: 20px; max-width: 800px; }
-
-  .bullet-list { list-style: none; margin-top: 56px; display: flex; flex-direction: column; gap: 34px; }
-  .bullet { display: flex; align-items: flex-start; gap: 26px; }
-  .dot {
-    flex: 0 0 auto;
-    width: 20px; height: 20px;
-    margin-top: 14px;
-    border-radius: 50%;
-    background: var(--accent);
-  }
-  .bullet-text {
-    font-size: 38px;
-    line-height: 1.34;
-    color: var(--fg);
-  }
-
-  /* Tighten as the list lengthens. */
-  .bullets-4 .bullet-list, .bullets-5 .bullet-list { gap: 26px; }
-  .bullets-4 .bullet-text { font-size: 34px; }
-  .bullets-5 .bullet-text { font-size: 31px; }
-  .bullets-5 .dot { width: 16px; height: 16px; margin-top: 12px; }
-</style>

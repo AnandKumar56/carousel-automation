@@ -1,36 +1,36 @@
-{# COVER - opening slide. Big headline, optional kicker and subheadline,
-   swipe affordance at the bottom when this is part of a carousel. #}
-<div class="inner cover">
+{# COVER / editorial_hero (bottom-anchored).
 
-  {% if slide.eyebrow %}
-    <div class="eyebrow">{{ slide.eyebrow }}</div>
-  {% endif %}
+   The headline rests ON the meta block rather than floating mid-canvas, and the
+   open area above it is framed by the full-bleed accent rail so it reads as
+   composition. A cover legitimately needs room for its headline to land - what was
+   wrong with the original frames was not open space but that every frame had the
+   SAME open space in the same place.
 
-  <div class="spacer"></div>
+   `at-bottom` is what distinguishes this from big-text, which uses `at-centre`. In
+   the first pass both were bottom-anchored and came out near-identical. #}
+<div class="lay L-hero at-bottom" style="--headline-len: {{ view.headline_len }};">
 
-  <div class="cover-body">
-    <div class="rule"></div>
-    <h1 class="headline">{{ slide.headline }}</h1>
-    {% if slide.subheadline %}
-      <p class="subheadline">{{ slide.subheadline }}</p>
-    {% endif %}
+  <div class="hero-rail"></div>
+
+  <div class="hero-eyebrow region">
+    {% if slide.eyebrow %}<div class="sec-eyebrow">{{ slide.eyebrow }}</div>{% endif %}
   </div>
 
-  <div class="spacer"></div>
-
-  <div class="footer">
-    <span class="brand">{{ brand }}</span>
-    {% if totalSlides > 1 %}
-      <span class="swipe">Swipe &rarr;</span>
-    {% elif slide.source %}
-      <span>{{ slide.source }}</span>
-    {% endif %}
+  <div class="hero-body region">
+    <h1 class="hero-headline">{{ slide.headline }}</h1>
+    {% if slide.subheadline %}<p class="hero-sub">{{ slide.subheadline }}</p>{% endif %}
   </div>
+
+  <div class="hero-swipe region">
+    {% if totalSlides > 1 %}<span class="swipe">Swipe &rarr;</span>{% endif %}
+  </div>
+
+  {% include 'partials/meta.njk' %}
 
 </div>
 
 <style>
-  .cover-body { display: flex; flex-direction: column; gap: 40px; }
-  .cover .headline { max-width: 860px; }
-  .cover .subheadline { max-width: 760px; }
+  /* The swipe affordance gets its own grid row so it cannot collide with either
+     the headline above or the source line below. */
+  .L-hero .hero-swipe { padding: 34px 96px 0 96px; }
 </style>

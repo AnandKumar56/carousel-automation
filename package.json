@@ -10,6 +10,7 @@
   },
   "scripts": {
     "start": "node src/server.js",
+    "test": "node --test \"test/**/*.test.js\"",
     "smoke": "node src/smoke.js",
     "deploycheck": "node src/deploycheck.js",
     "postinstall": "playwright install chromium"

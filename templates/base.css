@@ -4,9 +4,15 @@
  * screenshots that element with a fixed clip, so output dimensions can never
  * drift. Nothing here may change .slide's width or height.
  *
- * Safe area: Instagram overlays UI near the edges in some surfaces, and the
- * feed can crop marginally. All content sits inside .inner, which carries
- * 96px of padding, so nothing important is ever near an edge.
+ * SAFE AREA IS NO LONGER APPLIED HERE. It used to live on a single `.inner` rule
+ * with 96px on all four sides, which meant every frame was the same inset
+ * rectangle - the structural cause of the identical silhouettes and the 40-60%
+ * dead canvas the design audit measured. Padding is now the responsibility of
+ * each layout region (see layouts.css), so a layout can bleed an image to the
+ * edges or run a divider the full width while its text still keeps a 96px margin.
+ *
+ * This file holds only what is genuinely shared: the canvas box, the decorative
+ * background layers, and the type primitives.
  */
 
 * {
@@ -32,15 +38,6 @@ body {
   color: var(--fg);
   display: flex;
   flex-direction: column;
-}
-
-.inner {
-  position: relative;
-  z-index: 2;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 96px;
 }
 
 /* ---------- decorative layers ---------- */
@@ -71,7 +68,7 @@ body {
   );
 }
 
-/* ---------- type ---------- */
+/* ---------- type primitives ---------- */
 
 .eyebrow {
   font-family: var(--font-mono);
@@ -80,16 +77,6 @@ body {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--accent);
-}
-
-.headline {
-  font-family: var(--font-display);
-  font-weight: 800;
-  line-height: 1.04;
-  letter-spacing: -0.02em;
-  color: var(--fg-strong);
-  /* Scales down as the string grows so long headlines never overflow. */
-  font-size: clamp(56px, calc(150px - var(--headline-len) * 1.05px), 116px);
 }
 
 .subheadline {
@@ -117,20 +104,6 @@ body {
   border-radius: 4px;
 }
 
-.spacer {
-  flex: 1;
-}
-
-.footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: 24px;
-  letter-spacing: 0.08em;
-  color: var(--fg-faint);
-}
-
 .brand {
   font-weight: 700;
   color: var(--accent);
@@ -149,4 +122,167 @@ body {
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+/* ---------- charts ----------
+ *
+ * charts.js emits inline SVG with semantic classes and NO colours, so the whole
+ * palette lives here and every chart adopts whichever of the 11 themes the slide
+ * is using. Series beyond the first are the accent at reduced fill-opacity
+ * rather than new hues: that is guaranteed to stay legible on all 11 themes,
+ * where hardcoded hues would clash with at least one of them. A theme may still
+ * override --chart-2 / --chart-3 in themes.css if a real second hue reads better.
+ *
+ * Geometry (positions, sizes) is computed in charts.js and lives in SVG
+ * attributes, so nothing here can push a slide past 1080x1350.
+ */
+
+.slide {
+  --chart-2: var(--accent);
+  --chart-3: var(--accent);
+  --chart-2-opacity: 0.45;
+  --chart-3-opacity: 0.24;
+}
+
+.chart {
+  display: block;
+  overflow: visible;
+}
+
+/* Gridlines must be visible enough to read a value against, faint enough that
+ * they never compete with the data marks. */
+.chart .c-grid {
+  stroke: var(--fg-faint);
+  stroke-width: 1;
+  opacity: 0.28;
+}
+
+/* The zero line is structural, not decorative - it is the reference that makes
+ * the bar lengths mean anything, so it is drawn stronger than a gridline. */
+.chart .c-axis-zero {
+  stroke: var(--fg-muted);
+  stroke-width: 2;
+  opacity: 0.75;
+}
+
+.chart .c-axis-time {
+  stroke: var(--fg-muted);
+  stroke-width: 3;
+  opacity: 0.6;
+}
+
+.chart .c-tick-line {
+  stroke: var(--fg-faint);
+  stroke-width: 2;
+  opacity: 0.5;
+}
+
+.chart .c-bar {
+  fill: var(--accent);
+}
+
+/* The point of the chart, flagged by the planner. Full-strength accent plus a
+ * hairline so it separates from neighbouring bars without a drop shadow. */
+.chart .c-bar-key {
+  fill: var(--accent);
+  stroke: var(--fg-strong);
+  stroke-width: 2;
+  stroke-opacity: 0.22;
+}
+
+.chart .c-series-1 { fill: var(--accent); }
+.chart .c-series-2 { fill: var(--chart-2); fill-opacity: var(--chart-2-opacity); }
+.chart .c-series-3 { fill: var(--chart-3); fill-opacity: var(--chart-3-opacity); }
+.chart .c-series-4 { fill: var(--fg-muted); fill-opacity: 0.55; }
+.chart .c-series-5 { fill: var(--fg-muted); fill-opacity: 0.35; }
+.chart .c-series-6 { fill: var(--fg-faint); fill-opacity: 0.45; }
+
+.chart .c-share-seg {
+  stroke: var(--bg);
+  stroke-width: 2;
+}
+
+.chart .c-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart .c-area {
+  fill: var(--accent);
+  fill-opacity: 0.12;
+  stroke: none;
+}
+
+.chart .c-dot {
+  fill: var(--accent);
+  stroke: var(--bg);
+  stroke-width: 4;
+}
+
+.chart .c-dot-key {
+  fill: var(--accent);
+  stroke: var(--bg);
+  stroke-width: 5;
+}
+
+/* ---------- chart type ---------- */
+
+.chart text {
+  font-family: var(--font-body);
+}
+
+.chart .c-label {
+  fill: var(--fg);
+}
+
+.chart .c-tick,
+.chart .c-axis-unit {
+  font-family: var(--font-mono);
+  fill: var(--fg-faint);
+  letter-spacing: 0.04em;
+}
+
+.chart .c-value,
+.chart .c-value-sm {
+  font-family: var(--font-display);
+  fill: var(--fg-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sits on top of a filled bar, so it takes the background colour to stay
+ * readable instead of relying on the bar being light or dark. */
+.chart .c-value-inset {
+  fill: var(--bg);
+}
+
+.chart .c-share-pct {
+  font-family: var(--font-display);
+  fill: var(--bg);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart .c-delta {
+  font-family: var(--font-mono);
+  fill: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+.chart .c-legend {
+  fill: var(--fg-muted);
+}
+
+.chart .c-swatch {
+  stroke: var(--card-border);
+  stroke-width: 1;
+}
+
+/* Attribution is baked into the SVG by charts.js so a template cannot forget to
+ * print it. Quiet, but never invisible. */
+.chart .c-source {
+  font-family: var(--font-mono);
+  fill: var(--fg-faint);
+  letter-spacing: 0.03em;
 }

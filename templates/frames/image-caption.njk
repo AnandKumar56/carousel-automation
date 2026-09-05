@@ -1,77 +1,43 @@
-{# IMAGE-CAPTION - a reference image with a caption. The image is passed as a
-   data URI (imageData) because the renderer blocks all network requests to stay
-   deterministic. n8n must base64 the image before calling.
-   Falls back to a labelled placeholder block if no image is supplied, so the
-   slide still renders rather than failing the whole batch. #}
-<div class="inner imgcap">
+{# IMAGE-CAPTION / image_annotated - full-bleed image with a scrim.
 
-  {% if slide.eyebrow %}
-    <div class="eyebrow">{{ slide.eyebrow }}</div>
+   No safe-area inset at the root: the image reaches all four edges and the text
+   sits on a gradient scrim over the bottom. This is the family that most visibly
+   breaks the old silhouette, because there is no inset content rectangle at all.
+
+   The image is optional by design - a labelled placeholder is better than failing
+   a whole batch when a reference image could not be fetched. Only data URIs are
+   accepted; render.js blocks network requests inside the page, so an http image
+   would silently render as a broken box. #}
+<div class="lay L-image on-scrim" style="--headline-len: {{ view.headline_len }};">
+
+  {% if view.image.present %}
+    <div class="img-plate" style="background-image: {{ view.image.css | safe }};"></div>
+  {% else %}
+    <div class="img-plate is-placeholder"></div>
+    <div class="img-placeholder-note">{{ view.image.note }}</div>
   {% endif %}
 
-  {% if slide.headline %}
-    <h2 class="headline headline-sm">{{ slide.headline }}</h2>
-  {% endif %}
-
-  <div class="ic-frame">
-    {% if slide.imageData %}
-      <img class="ic-img" src="{{ slide.imageData }}" alt="{{ slide.caption | default('') }}">
-    {% else %}
-      <div class="ic-placeholder">
-        <div class="ic-ph-mark">no image supplied</div>
-      </div>
-    {% endif %}
+  <div class="img-top region">
+    {% if slide.eyebrow %}<div class="sec-eyebrow img-eyebrow">{{ slide.eyebrow }}</div>{% endif %}
   </div>
 
-  {% if slide.caption %}
-    <div class="ic-caption">{{ slide.caption }}</div>
-  {% endif %}
-  {% if slide.credit %}
-    <div class="ic-credit">{{ slide.credit }}</div>
-  {% endif %}
-
-  <div class="spacer"></div>
-
-  <div class="footer">
-    <span class="brand">{{ brand }}</span>
-    {% if totalSlides > 1 %}<span class="pager">{{ slideNumber }} / {{ totalSlides }}</span>{% endif %}
+  <div class="img-scrim region">
+    <h2 class="img-headline">{{ slide.headline }}</h2>
+    {% if slide.caption %}<p class="img-caption">{{ slide.caption }}</p>{% endif %}
+    {% include 'partials/meta.njk' %}
   </div>
 
 </div>
 
 <style>
-  .imgcap .headline-sm {
-    font-size: clamp(44px, calc(92px - var(--headline-len) * 0.64px), 66px);
-    max-width: 840px;
+  /* Over an image the accent may not clear the background, so the eyebrow gets a
+     solid chip rather than relying on colour contrast alone. */
+  .L-image .img-eyebrow {
+    display: inline-block;
+    background: var(--bg);
+    color: var(--accent);
+    padding: 12px 20px;
+    border-radius: 8px;
   }
-  .ic-frame {
-    margin-top: 44px;
-    width: 100%;
-    height: 620px;
-    border-radius: 20px;
-    overflow: hidden;
-    border: 2px solid var(--card-border);
-    background: var(--card-bg);
-    flex: 0 0 auto;
-  }
-  .ic-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .ic-placeholder {
-    width: 100%; height: 100%;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .ic-ph-mark {
-    font-family: var(--font-mono);
-    font-size: 26px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--fg-faint);
-  }
-  .ic-caption { margin-top: 28px; font-size: 30px; line-height: 1.34; color: var(--fg); max-width: 840px; }
-  .ic-credit {
-    margin-top: 12px;
-    font-family: var(--font-mono);
-    font-size: 22px;
-    letter-spacing: 0.06em;
-    color: var(--fg-faint);
-  }
+  .L-image .img-scrim .slide-meta { padding: 0; margin-top: 10px; }
 </style>

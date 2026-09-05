@@ -1,0 +1,39 @@
+{# CHART / chart_dominant - a real data visualisation as the subject of the slide.
+
+   The SVG is built in charts.js and arrives pre-rendered with its source
+   attribution already baked in, so this template only places it. The chart region
+   takes the 1fr, meaning the visualisation absorbs all slack rather than sitting
+   in a fixed band with dead space beneath it.
+
+   The headline must state the FINDING, not the chart's subject: "Ad revenue grew
+   7x in five months" rather than "Monthly ad revenue". A neutral title makes the
+   reader do the interpreting, which is the failure the audit found throughout. #}
+<div class="lay L-chart" style="--headline-len: {{ view.headline_len }};">
+
+  <div class="chart-head region">
+    {% if slide.eyebrow %}<div class="sec-eyebrow">{{ slide.eyebrow }}</div>{% endif %}
+    <h2 class="chart-headline">{{ slide.headline }}</h2>
+    {% if slide.subheadline %}<p class="sec-sub">{{ slide.subheadline }}</p>{% endif %}
+  </div>
+
+  <div class="chart-spacer region"></div>
+
+  <div class="chart-stage region">
+    {{ chart.svg | safe }}
+  </div>
+
+  <div class="chart-foot region">
+    {% if slide.takeaway %}<p class="chart-takeaway">{{ slide.takeaway }}</p>{% endif %}
+    {% include 'partials/meta.njk' %}
+  </div>
+
+</div>
+
+<style>
+  /* A small fixed gap between the head block and the chart. Kept as its own row
+     so the 1fr stays entirely on the chart stage. */
+  .L-chart .chart-spacer { height: 30px; }
+  .L-chart .chart-stage .chart { max-width: 888px; }
+  /* The meta block is inside chart-foot, which already pads the bottom. */
+  .L-chart .chart-foot .slide-meta { padding: 0; }
+</style>

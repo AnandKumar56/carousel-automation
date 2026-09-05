@@ -1,66 +1,29 @@
-{# OUTRO - closing slide. Call to action plus optional source attribution.
-   Deliberately sparse; this slide exists to prompt an action, not to inform. #}
-<div class="inner outro">
+{# OUTRO / conclusion_cta - the close.
 
-  {% if slide.eyebrow %}
-    <div class="eyebrow">{{ slide.eyebrow }}</div>
-  {% endif %}
+   The only centred, symmetric layout in the set, so the last slide reads as an
+   ending rather than as one more content slide. It also carries the full source
+   manifest: the one place in a carousel where a reader can audit every figure at
+   once, which matters more here than anywhere because the individual slides only
+   cite what they use. #}
+<div class="lay L-outro" style="--headline-len: {{ view.headline_len }};">
 
-  <div class="spacer"></div>
+  <div class="outro-stage region">
+    <div class="outro-rule"></div>
+    <h2 class="outro-headline">{{ slide.headline }}</h2>
+    {% if slide.subheadline %}<p class="outro-sub">{{ slide.subheadline }}</p>{% endif %}
+    {% if slide.cta %}<div class="outro-cta">{{ slide.cta }}</div>{% endif %}
+  </div>
 
-  <div class="outro-body">
-    <h2 class="headline">{{ slide.headline }}</h2>
-    {% if slide.subheadline %}
-      <p class="subheadline">{{ slide.subheadline }}</p>
-    {% endif %}
-
-    {% if slide.cta %}
-      <div class="cta-pill">{{ slide.cta }}</div>
+  <div class="outro-manifest region">
+    {% if view.manifest | length %}
+      <div class="manifest-title">Sources</div>
+      {# Joined with a literal separator and left to autoescape. Marking this
+         `safe` in order to use an HTML entity would also unescape the source
+         names, which are external input. #}
+      <div class="manifest-names">{{ view.manifest | join('  ·  ') }}</div>
     {% endif %}
   </div>
 
-  <div class="spacer"></div>
-
-  {% if slide.sources %}
-    <div class="sources">
-      <div class="sources-label">Sources</div>
-      <div class="sources-list">{{ slide.sources }}</div>
-    </div>
-  {% endif %}
-
-  <div class="footer">
-    <span class="brand">{{ brand }}</span>
-    {% if totalSlides > 1 %}
-      <span class="pager">{{ slideNumber }} / {{ totalSlides }}</span>
-    {% endif %}
-  </div>
+  {% include 'partials/meta.njk' %}
 
 </div>
-
-<style>
-  .outro-body { display: flex; flex-direction: column; gap: 36px; }
-  .outro .headline { max-width: 840px; }
-  .outro .subheadline { max-width: 780px; }
-  .cta-pill {
-    align-self: flex-start;
-    margin-top: 12px;
-    padding: 24px 44px;
-    border-radius: 999px;
-    background: var(--accent);
-    color: var(--bg);
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: 38px;
-    letter-spacing: -0.01em;
-  }
-  .sources { margin-bottom: 34px; }
-  .sources-label {
-    font-family: var(--font-mono);
-    font-size: 22px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--fg-faint);
-    margin-bottom: 8px;
-  }
-  .sources-list { font-size: 26px; line-height: 1.36; color: var(--fg-muted); max-width: 820px; }
-</style>
